@@ -81,6 +81,13 @@
     "extreme_color": "rgba(250,170,160,0.5)",
     "smooth_sigma": 1
   },
+    "read_gc_over_time": {
+      "plot_title": "%GC over experiment time",
+      "median_color": "rgb(51,153,0)",
+      "quartile_color": "rgb(85,255,0)",
+      "extreme_color": "rgba(153,255,102,0.5)",
+      "smooth_sigma": 1
+  },
   "align_len_over_time": {
     "plot_title": "Aligned reads length over experiment time",
     "median_color": "rgb(102,168,255)",

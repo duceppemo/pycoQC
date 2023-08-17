@@ -28,6 +28,7 @@ np.random.RandomState(seed=SEED)
 # Silence futurewarnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAIN CLASS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 class pycoQC_plot():
 
@@ -92,6 +93,7 @@ class pycoQC_plot():
         m += "\tBarcode: {}\n".format(self.has_barcodes)
         m += "\tAlignment: {}\n".format(self.has_alignment)
         m += "\tPromethion: {}\n".format(self.is_promethion)
+        m += "\tFlongle: {}\n".format(self.is_flongle)
         m += "\tAll reads: {:,}\n".format(len(self.all_df))
         m += "\tAll bases: {:,}\n".format(int(self.all_df["read_len"].sum()))
         m += "\tAll median read length: {:,}\n".format(np.median(self.all_df["read_len"]))
@@ -119,6 +121,10 @@ class pycoQC_plot():
     @property
     def is_promethion(self):
         return self.all_df["channel"].max() > 512
+
+    @property
+    def is_flongle(self):
+        return self.all_df["channel"].max() < 127
 
     @property
     def total_ref_len(self):
@@ -670,20 +676,21 @@ class pycoQC_plot():
             plot_title=plot_title)
         return fig
 
-    def read_len_read_gc_2D(self,
-                            colorscale=(
-                                    [0.0, 'rgba(255,255,255,0)'],
-                                    [0.1, 'rgba(255,150,0,0)'],
-                                    [0.25, 'rgb(255,100,0)'],
-                                    [0.5, 'rgb(200,0,0)'],
-                                    [0.75, 'rgb(120,0,0)'],
-                                    [1.0, 'rgb(70,0,0)']),
-                            x_nbins: int = 200,
-                            y_nbins: int = 100,
-                            smooth_sigma: float = 2,
-                            width: int = None,
-                            height: int = 600,
-                            plot_title: str = "Basecalled reads length vs reads %GC"):
+    def read_len_read_gc_2D(
+            self,
+            colorscale=(
+                    [0.0, 'rgba(255,255,255,0)'],
+                    [0.1, 'rgba(204,255,204,0)'],
+                    [0.25, 'rgb(102,255,51)'],
+                    [0.5, 'rgb(0,153,0)'],
+                    [0.75, 'rgb(51,102,0)'],
+                    [1.0, 'rgb(0,51,0)']),
+            x_nbins: int = 200,
+            y_nbins: int = 100,
+            smooth_sigma: float = 2,
+            width: int = None,
+            height: int = 600,
+            plot_title: str = "Basecalled reads length vs reads %GC"):
         """
         Plot a 2D distribution of quality scores vs length of the reads
         * colorscale
@@ -1167,6 +1174,50 @@ class pycoQC_plot():
             height=height)
         return fig
 
+    def read_gc_over_time(
+            self,
+            median_color: str = "rgb(51,153,0)",
+            quartile_color: str = "rgb(85,255,0)",
+            extreme_color: str = "rgba(153,255,102,0.5)",
+            smooth_sigma: float = 1,
+            time_bins: int = 500,
+            width: int = None,
+            height: int = 500,
+            plot_title: str = "%GC over experiment time"):
+        """
+        Plot a mean quality over time
+        * median_color
+            Color of median line color(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
+        * quartile_color
+            Color of inter quartile area and lines(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
+        * extreme_color
+            Color of inter extreme area and lines(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-col
+        * smooth_sigma
+            sigma parameter for the Gaussian filter line smoothing
+        * time_bins
+            Number of bins to divide the time values in(x axis)
+        * width
+            With of the plotting area in pixel
+        * height
+            height of the plotting area in pixel
+        * plot_title
+            Title to display on top of the plot
+        """
+
+        fig = self.__over_time_plot(
+            field_name="%GC",
+            plot_title=plot_title,
+            y_lab="Mean read %GC",
+            y_scale="linear",
+            median_color=median_color,
+            quartile_color=quartile_color,
+            extreme_color=extreme_color,
+            smooth_sigma=smooth_sigma,
+            time_bins=time_bins,
+            width=width,
+            height=height)
+        return fig
+
     def align_len_over_time(
             self,
             median_color: str = "rgb(102,168,255)",
@@ -1447,7 +1498,13 @@ class pycoQC_plot():
         self.logger.info("\t\tComputing plot")
 
         # Define maximal number of channels
-        n_channels = 3000 if self.is_promethion else 512
+        if self.is_promethion:
+            n_channels = 3000
+        elif self.is_flongle:
+            n_channels = 126
+        else:
+            n_channels = 512  # MinION / GridION
+        # n_channels = 3000 if self.is_promethion else 512
 
         # Prepare all data
         lab1, dd1 = self.__channels_activity_data(df_level="all", count_level="reads", n_channels=n_channels,
@@ -1498,7 +1555,7 @@ class pycoQC_plot():
         t = np.digitize(t, bins=bins, right=True)
 
         # Count values per categories
-        z = np.ones((len(bins), n_channels), dtype=np.int)
+        z = np.ones((len(bins), n_channels), dtype=np.int32)
         if count_level == "bases":
             for t_idx, channel, n_bases in zip(t, df["channel"], df["read_len"]):
                 z[t_idx][channel-1] += n_bases
