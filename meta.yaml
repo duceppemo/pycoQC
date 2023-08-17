@@ -14,6 +14,7 @@ build:
   entry_points:
     - pycoQC=pycoQC.__main__:main_pycoQC
     - Fast5_to_seq_summary=pycoQC.__main__:main_Fast5_to_seq_summary
+    - Fastq_to_seq_summary=pycoQC.__main__:main_Fastq_to_seq_summary
     - Barcode_split=pycoQC.__main__:main_Barcode_split
   noarch: "python"
 
@@ -31,15 +32,18 @@ requirements:
     - h5py>=3.1
     - tqdm>=4.54
     - pysam>=0.16
+    - Cython>=3.0.0
 
 test:
   imports:
     - pycoQC.pycoQC
     - pycoQC.Fast5_to_seq_summary
+    - pycoQC.Fastq_to_seq_summary
     - pycoQC.Barcode_split
   commands:
     - pycoQC --help
     - Fast5_to_seq_summary --help
+    - Fastq_to_seq_summary --help
     - Barcode_split --help
 
 about:

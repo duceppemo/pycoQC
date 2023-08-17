@@ -22,15 +22,16 @@ from pycoQC.pycoQC_parse import pycoQC_parse
 # Silence futurewarnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAIN CLASS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-def Barcode_split (
-    summary_file:str,
-    barcode_file:str="",
-    output_dir:str="",
-    output_unclassified:bool=False,
-    min_barcode_percent:float=0.1,
-    verbose:bool=False,
-    quiet:bool=False):
+def barcode_split(
+        summary_file: str,
+        barcode_file: str="",
+        output_dir: str="",
+        output_unclassified: bool=False,
+        min_barcode_percent: float=0.1,
+        verbose: bool=False,
+        quiet: bool=False):
     """
     Parse Albacore sequencing_summary.txt file and split per barcode
     By default, data for low frequency barcodes and unclassified reads are not written in the output directory
@@ -54,10 +55,12 @@ def Barcode_split (
 
     # Save args and init options in dict for report
     options_d = locals()
-    info_d = {"package_name":package_name, "package_version":package_version, "timestamp":str(datetime.datetime.now())}
+    info_d = {"package_name": package_name,
+              "package_version": package_version,
+              "timestamp": str(datetime.datetime.now())}
 
     # Set logging level
-    logger = get_logger (name=__name__, verbose=verbose, quiet=quiet)
+    logger = get_logger(name=__name__, verbose=verbose, quiet=quiet)
 
     # Print debug info
     logger.debug("General info")
@@ -66,34 +69,35 @@ def Barcode_split (
     logger.debug(dict_to_str(options_d))
 
     # Process data
-    logger.warning ("Import data from sequencing summary file(s) and cleanup")
-    logger.info ("\tRead files and import in a dataframe")
-    pps = pycoQC_parse(summary_file=summary_file, barcode_file=barcode_file, cleanup=False, verbose=verbose, quiet=quiet)
+    logger.warning("Import data from sequencing summary file(s) and cleanup")
+    logger.info("\tRead files and import in a dataframe")
+    pps = pycoQC_parse(summary_file=summary_file, barcode_file=barcode_file, cleanup=False,
+                       verbose=verbose, quiet=quiet)
     df = pps.reads_df
 
     # Rename barcode field and check if present
-    df = df.rename(columns={"barcode_arrangement":"barcode"})
+    df = df.rename(columns={"barcode_arrangement": "barcode"})
     if not "barcode" in df:
-        raise pycoQCError ("No barcode information found in provided file(s)")
+        raise pycoQCError("No barcode information found in provided file(s)")
 
     # Quick data cleanup
-    logger.info ("\tCleanup missing barcodes values")
-    df = df.fillna({"barcode":"unclassified"})
+    logger.info("\tCleanup missing barcodes values")
+    df = df.fillna({"barcode": "unclassified"})
 
     # List barcode with low frequency
     if min_barcode_percent:
-        logger.info ("\tCleaning up low frequency barcodes")
-        barcode_counts = df["barcode"][df["barcode"]!="unclassified"].value_counts()
+        logger.info("\tCleaning up low frequency barcodes")
+        barcode_counts = df["barcode"][df["barcode"] != "unclassified"].value_counts()
         cutoff = int(barcode_counts.sum()*min_barcode_percent/100)
-        low_barcode = barcode_counts[barcode_counts<cutoff].index
+        low_barcode = barcode_counts[barcode_counts < cutoff].index
         # df.loc[df["barcode"].isin(low_barcode), "barcode"] = "unclassified"
 
-    bc = namedtuple ("bc", ["Counts", "Write"])
+    bc = namedtuple("bc", ["Counts", "Write"])
     bc_l = OrderedDict()
 
-    logger.warning ("Split data per barcode")
+    logger.warning("Split data per barcode")
     for barcode, barcode_df in df.groupby("barcode"):
-        logger.info ("\tProcessing data for Barcode {}".format(barcode))
+        logger.info("\tProcessing data for Barcode {}".format(barcode))
 
         # Skip unclassified if required
         if not output_unclassified and barcode == "unclassified":

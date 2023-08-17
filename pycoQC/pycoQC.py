@@ -20,26 +20,27 @@ from pycoQC import __version__ as package_version
 # Silence futurewarnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAIN CLASS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-def pycoQC (
-    summary_file:str,
-    barcode_file:str="",
-    bam_file:str="",
-    runid_list:list=[],
-    filter_calibration:bool=False,
-    filter_duplicated:bool=False,
-    min_barcode_percent:float=0.1,
-    min_pass_qual:float=7,
-    min_pass_len:int=0,
-    sample:int=100000,
-    html_outfile:str="",
-    report_title:str="PycoQC report",
-    config_file:str="",
-    template_file:str="",
-    json_outfile:str="",
-    skip_coverage_plot:bool=False,
-    verbose:bool=False,
-    quiet:bool=False):
+def pycoQC(
+        summary_file: str,
+        barcode_file: str = "",
+        bam_file: str = "",
+        runid_list: list = (),
+        filter_calibration: bool = False,
+        filter_duplicated: bool = False,
+        min_barcode_percent: float = 0.1,
+        min_pass_qual: float = 7,
+        min_pass_len: int = 0,
+        sample: int = 100000,
+        html_outfile: str = "",
+        report_title: str = "PycoQC report",
+        config_file: str = "",
+        template_file: str = "",
+        json_outfile: str = "",
+        skip_coverage_plot: bool = False,
+        verbose: bool = False,
+        quiet: bool = False):
     """
     Parse Albacore sequencing_summary.txt file and clean-up the data
     * summary_file
@@ -88,18 +89,23 @@ def pycoQC (
 
     # Save args and init options in dict for report
     options_d = locals()
-    info_d = {"package_name":package_name, "package_version":package_version, "timestamp":str(datetime.datetime.now())}
+    info_d = {"package_name": package_name, "package_version": package_version,
+              "timestamp": str(datetime.datetime.now())}
 
     # Set logging level
-    logger = get_logger (name=__name__, verbose=verbose, quiet=quiet)
-    logger.warning ("Checking arguments values")
+    logger = get_logger(name=__name__, verbose=verbose, quiet=quiet)
+    logger.warning("Checking arguments values")
 
     # Save all verified values + type
     runid_list = check_arg("runid_list", runid_list, required_type=list, allow_none=True)
-    filter_calibration = check_arg("filter_calibration", filter_calibration, required_type=bool, allow_none=False)
-    filter_duplicated = check_arg("filter_duplicated", filter_duplicated, required_type=bool, allow_none=False)
-    min_barcode_percent = check_arg("min_barcode_percent", min_barcode_percent, required_type=float, min=0, max=100, allow_none=False)
-    min_pass_qual = check_arg("min_pass_qual", min_pass_qual, required_type=float, min=0, max=60, allow_none=False)
+    filter_calibration = check_arg("filter_calibration", filter_calibration, required_type=bool,
+                                   allow_none=False)
+    filter_duplicated = check_arg("filter_duplicated", filter_duplicated, required_type=bool,
+                                  allow_none=False)
+    min_barcode_percent = check_arg("min_barcode_percent", min_barcode_percent, required_type=float,
+                                    min=0, max=100, allow_none=False)
+    min_pass_qual = check_arg("min_pass_qual", min_pass_qual, required_type=float, min=0, max=60,
+                              allow_none=False)
     min_pass_len = check_arg("min_pass_len", min_pass_len, required_type=int, min=0, allow_none=False)
     sample = check_arg("sample", sample, required_type=int, min=0, allow_none=True)
     html_outfile = check_arg("html_outfile", html_outfile, required_type=str, allow_none=True)
@@ -108,7 +114,8 @@ def pycoQC (
     config_file = check_arg("config_file", config_file, required_type=str, allow_none=True)
     template_file = check_arg("template_file", template_file, required_type=str, allow_none=True)
     json_outfile = check_arg("json_outfile", json_outfile, required_type=str, allow_none=True)
-    skip_coverage_plot = check_arg("skip_coverage_plot", skip_coverage_plot, required_type=bool, allow_none=False)
+    skip_coverage_plot = check_arg("skip_coverage_plot", skip_coverage_plot, required_type=bool,
+                                   allow_none=False)
 
     # Print debug info
     logger.debug("General info")
@@ -117,7 +124,7 @@ def pycoQC (
     logger.debug(dict_to_str(options_d))
 
     #~~~~~~~~~~pycoQC_parse~~~~~~~~~~#
-    parser = pycoQC_parse (
+    parser = pycoQC_parse(
         summary_file=summary_file,
         barcode_file=barcode_file,
         bam_file=bam_file,
@@ -145,7 +152,7 @@ def pycoQC (
 
     #~~~~~~~~~~pycoQC_report~~~~~~~~~~#
     if html_outfile or json_outfile:
-        reporter = pycoQC_report (
+        reporter = pycoQC_report(
             parser=parser,
             plotter=plotter,
             verbose=verbose,

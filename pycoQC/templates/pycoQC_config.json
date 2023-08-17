@@ -38,6 +38,12 @@
     "y_nbins": 100,
     "smooth_sigma": 2
   },
+  "read_len_read_gc_2D": {
+    "plot_title": "Basecalled reads length vs reads %GC",
+    "x_nbins": 200,
+    "y_nbins": 100,
+    "smooth_sigma": 2
+  },
   "read_len_align_len_2D": {
     "plot_title": "Basecalled reads length vs alignments length",
     "x_nbins": 200,

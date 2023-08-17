@@ -27,6 +27,10 @@ nav:
         - Using Fast5_to_seq_summary: Fast5_to_seq_summary/usage.md
         - jupyter API usage: Fast5_to_seq_summary/API_usage.ipynb
         - Command line usage: Fast5_to_seq_summary/CLI_usage.ipynb
+    - Fastq_to_seq_summary Usage:
+        - Using Fastq_to_seq_summary: Fastq_to_seq_summary/usage.md
+        - jupyter API usage: Fastq_to_seq_summary/API_usage.ipynb
+        - Command line usage: Fastq_to_seq_summary/CLI_usage.ipynb
     - Citing pycoQC: citing.md
     - Acknowledgements: acknowledgements.md
     - Alternative and complementary packages: alternative.md

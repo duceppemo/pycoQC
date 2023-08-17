@@ -28,7 +28,8 @@ managed_values:
   __minimal_python__: '>=3.6'
   __entry_point_1__: pycoQC=pycoQC.__main__:main_pycoQC
   __entry_point_2__: Fast5_to_seq_summary=pycoQC.__main__:main_Fast5_to_seq_summary
-  __entry_point_3__: Barcode_split=pycoQC.__main__:main_Barcode_split
+  __entry_point_3__: Fastq_to_seq_summary=pycoQC.__main__:main_Fastq_to_seq_summary
+  __entry_point_4__: Barcode_split=pycoQC.__main__:main_Barcode_split
   __dependency_1__: numpy>=1.19
   __dependency_2__: scipy>=1.5
   __dependency_3__: pandas>=1.1
