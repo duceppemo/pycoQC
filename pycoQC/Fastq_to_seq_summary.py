@@ -113,7 +113,6 @@ class FastqParser(object):
         entry_dict[read_id]['start_time'] = time_string
         entry_dict[read_id]['passes_filtering'] = flag
 
-
         return entry_dict
 
     @staticmethod
@@ -335,6 +334,16 @@ class Fastq_to_seq_summary():
             # Transform collected data to dataframe and write to file
             logger.debug("[WRITER] Write data to file")
             df = pd.DataFrame(l)
+
+            # Convert "start_time" column to datetime
+            df['start_time'] = pd.to_datetime(df['start_time'])
+
+            # Convert datetime to elapsed minutes
+            time_zero = df.loc[:, 'start_time'].min()  # looking for min of 1st elements of list of tuples
+            df.loc[:, 'start_time'] = df.loc[:, 'start_time'] - time_zero
+            df.loc[:, 'start_time'] = df.loc[:, 'start_time'].dt.total_seconds()
+            df.loc[:, 'start_time'] = df.loc[:, 'start_time'].astype(int)  # Convert to integer
+
             df.to_csv(self.seq_summary_fn, sep="\t", index=False)
 
             # Collapse data from counters coming from workers

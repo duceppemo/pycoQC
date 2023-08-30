@@ -149,29 +149,27 @@ class pycoQC_parse():
 
     def _parse_barcode(self):
         """"""
-        if not self.barcode_files_list:
-            return pd.DataFrame()
+        df = pd.DataFrame()
 
-        self.logger.debug("\tParse barcode files")
-        df = merge_files_to_df(self.barcode_files_list)
+        if self.barcode_files_list:
+            self.logger.debug("\tParse barcode files")
+            df = merge_files_to_df(self.barcode_files_list)
 
-        # check presence of barcode details
-        if "read_id" in df and "barcode_arrangement" in df:
-            self.logger.debug("\t\tFound valid Guppy barcode file")
-            df = df[["read_id", "barcode_arrangement"]]
-            df = df.rename(columns={"barcode_arrangement": "barcode"})
+        # Check presence of barcode details
+            if "read_id" in df and "barcode_arrangement" in df:
+                self.logger.debug("\t\tFound valid Guppy barcode file")
+                df = df.rename(columns={"barcode_arrangement": "barcode"})
 
-        elif "read_ID" in df and "barcode_call" in df:
-            self.logger.debug("\t\tFound valid Deepbinner barcode file")
-            df = df [["read_ID", "barcode_call"]]
-            df = df.rename(columns={"read_ID": "read_id", "barcode_call": "barcode"})
+            elif "read_ID" in df and "barcode_call" in df:
+                self.logger.debug("\t\tFound valid Deepbinner barcode file")
+                df = df.rename(columns={"read_ID": "read_id", "barcode_call": "barcode"})
+
+            df = df[["read_id", "barcode"]]
             df['barcode'].replace("none", "unclassified", inplace=True)
-        else:
-            raise pycoQCError("File {} does not contain required barcode information".format(fp))
 
-        n = len(df[df['barcode'] != "unclassified"])
-        self.logger.debug("\t\t{:,} reads with barcodes assigned".format(n))
-        self.counter["Reads with barcodes"] = n
+            n = len(df[df['barcode'] != "unclassified"])
+            self.logger.debug("\t\t{:,} reads with barcodes assigned".format(n))
+            self.counter["Reads with barcodes"] = n
 
         return df
 
@@ -243,19 +241,12 @@ class pycoQC_parse():
 
     def _clean_reads_df(self, df):
         """"""
-        # Convert "start_time" column to datetime
-        df['start_time'] = pd.to_datetime(df['start_time'])
-
-        # Convert datetime to elapsed minutes
-        time_zero = df.loc[:, 'start_time'].min()  # looking for min of 1st elements of list of tuples
-        df.loc[:, 'start_time'] = df.loc[:, 'start_time'] - time_zero
-        df.loc[:, 'start_time'] = df.loc[:, 'start_time'].dt.total_seconds()
-        df.loc[:, 'start_time'] = df.loc[:, 'start_time'].astype(int)  # Convert to integer
-
         # Drop lines containing NA values
         self.logger.info("\tDiscarding lines containing NA values")
         l = len(df)
-        df = df.dropna(subset=["read_id", "run_id", "channel", "start_time", "read_len", "mean_qscore", "%GC"])
+        df = df.dropna(subset=["read_id", "run_id", "channel", "start_time", "read_len", "mean_qscore"])
+        if '%GC' in df:
+            df = df.dropna(subset="%GC")
         n = l-len(df)
         self.logger.info("\t\t{:,} reads discarded".format(n))
         self.counter["Reads with NA values discarded"] = n
@@ -299,7 +290,7 @@ class pycoQC_parse():
             self.logger.info("\tSelecting run_ids passed by user")
             l = len(df)
             df = df[(df["run_id"].isin(self.runid_list))]
-            n = l-len(df)
+            n = l - len(df)
             self.logger.debug("\t\t{:,} reads discarded".format(n))
             self.counter["Excluded runid reads discarded"] = n
             if len(df) <= 1:
@@ -320,7 +311,8 @@ class pycoQC_parse():
         increment_time = 0
         runid_start = OrderedDict()
         for runid in runid_list:
-            self.logger.info("\t\tProcessing reads with Run_ID {} / time offset: {}".format(runid, increment_time))
+            self.logger.info("\t\tProcessing reads with Run_ID {} / time offset: {}".format(
+                runid, increment_time))
             max_val = df['start_time'][df["run_id"] == runid].max()
             df.loc[df["run_id"] == runid, 'start_time'] += increment_time
             runid_start[runid] = increment_time
@@ -332,10 +324,10 @@ class pycoQC_parse():
             self.logger.info("\tCleaning up low frequency barcodes")
             l = (df["barcode"] == "unclassified").sum()
             barcode_counts = df["barcode"][df["barcode"] != "unclassified"].value_counts()
-            cutoff = int(barcode_counts.sum()*self.min_barcode_percent/100)
+            cutoff = int(barcode_counts.sum() * self.min_barcode_percent/100)
             low_barcode = barcode_counts[barcode_counts < cutoff].index
             df.loc[df["barcode"].isin(low_barcode), "barcode"] = "unclassified"
-            n= int((df["barcode"] == "unclassified").sum()-l)
+            n= int((df["barcode"] == "unclassified").sum() - l)
             self.logger.info("\t\t{:,} reads with low frequency barcode unset".format(n))
             self.counter["Reads with low frequency barcode unset"] = n
 

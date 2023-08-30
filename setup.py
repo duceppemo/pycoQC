@@ -12,14 +12,14 @@ with open('README.md', 'r') as fh:
 setup(
     name='pycoQC',
     description='PycoQC computes metrics and generates interactive QC plots for Oxford Nanopore technologies sequencing data',
-    version='2.5.2',
+    version='3.0.0',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/a-slide/pycoQC',
-    author='Adrien Leger & Tommaso Leonardi',
+    author='Adrien Leger & Tommaso Leonardi & Marc-Olivier Duceppe',
     author_email='aleg@ebi.ac.uk',
     license='GPLv3',
-    python_requires ='>=3.6',
+    python_requires='>=3.6',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

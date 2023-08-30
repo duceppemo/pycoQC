@@ -8,6 +8,9 @@
   "alignment_summary": {
     "plot_title": "Alignment summary"
   },
+  "barcode_summary": {
+    "plot_title": "Barcode summary"
+  },
   "read_len_1D": {
     "plot_title": "Basecalled reads length",
     "color": "lightsteelblue",
@@ -146,5 +149,11 @@
     "nbins": 500,
     "color": "rgba(102,168,255,0.75)",
     "smooth_sigma": 1
+  },
+  "length_boxplot_per_sample": {
+    "plot_title": "Read length distribution per sample"
+  },
+  "gc_boxplot_per_sample": {
+    "plot_title": "%GC distribution per sample"
   }
 }

@@ -1,7 +1,7 @@
 version:
-  major: 2
-  minor: 5
-  micro: 2
+  major: 3
+  minor: 0
+  micro: 0
   a: null
   b: null
   rc: null
@@ -20,7 +20,7 @@ managed_values:
     at https://timkahlke.github.io/LongRead_tutorials/QC_P.html
   __package_url__: https://github.com/a-slide/pycoQC
   __package_doc_url__: https://adrienleger.com/pycoQC
-  __author_name__: Adrien Leger & Tommaso Leonardi
+  __author_name__: Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe
   __author_email__: aleg@ebi.ac.uk
   __author_url__: https://adrienleger.com
   __package_licence__: GPLv3
@@ -33,7 +33,7 @@ managed_values:
   __dependency_1__: numpy>=1.19
   __dependency_2__: scipy>=1.5
   __dependency_3__: pandas>=1.1
-  __dependency_4__: plotly==4.1.0
+  __dependency_4__: plotly==5.16.1
   __dependency_5__: jinja2>=2.10
   __dependency_6__: h5py>=3.1
   __dependency_7__: tqdm>=4.54

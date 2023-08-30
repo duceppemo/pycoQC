@@ -185,8 +185,9 @@ def main_Fastq_to_seq_summary(args=None):
 
     # Define parser object
     parser = argparse.ArgumentParser(
-        description ="Fastq_to_seq_summary generate a sequencing summary like file from a directory containing Fastq files")
-    parser.add_argument('--version', '-v', action='version', version="{} v{}".format(package_name, package_version))
+        description="Fastq_to_seq_summary generate a sequencing summary like file from a directory containing Fastq files")
+    parser.add_argument('--version', '-v', action='version', version="{} v{}".format(
+        package_name, package_version))
     # Define arguments
     parser.add_argument("--fastq_dir", "-f", required=True, type=str,
         help="""Directory containing fast5 files. Can contain multiple subdirectories""")

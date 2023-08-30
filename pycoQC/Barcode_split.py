@@ -26,10 +26,10 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAIN CLASS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 def barcode_split(
         summary_file: str,
-        barcode_file: str="",
-        output_dir: str="",
-        output_unclassified: bool=False,
-        min_barcode_percent: float=0.1,
+        barcode_file: str = "",
+        output_dir: str = "",
+        output_unclassified: bool = False,
+        min_barcode_percent: float = 0.1,
         verbose: bool=False,
         quiet: bool=False):
     """

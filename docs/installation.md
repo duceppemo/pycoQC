@@ -1,6 +1,6 @@
 # Installation
 
-## Create a clean virtual environment (optional but recommended)
+## Create a clean virtual environment (optional but highly recommended)
 
 Ideally, before installation, create a clean **python3.6+** virtual environment to deploy the package.
 Earlier version of Python3 should also work but **Python 2 is not supported**.
@@ -46,7 +46,7 @@ You can also update to **unstable** development version from test.pypi repositor
 pip install --index-url https://test.pypi.org/simple/ pycoQC -U
 ```
 
-## Option 2: Installation with conda from Anacounda cloud
+## Option 2: Installation with conda from Anaconda cloud
 
 **If you want to be sure to get the last version don't forget to add my channel and to specify the last version number**
 
@@ -61,7 +61,7 @@ You can also get the **unstable** development version from my dev channel
 conda install -c aleg_dev -c anaconda -c bioconda -c conda-forge pycoqc=[VERSION]
 ```
 
-## Option 3: Installation with pip from Github
+## Option 3: Installation with pip from GitHub
 
 To get the last stable (master) or bleeding edge (dev) version
 

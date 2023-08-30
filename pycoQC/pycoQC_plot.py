@@ -31,7 +31,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MAIN CLASS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 class pycoQC_plot():
-
     def __init__(self,
                  parser: pycoQC_parse,
                  min_pass_qual: int = 7,
@@ -70,14 +69,15 @@ class pycoQC_plot():
             self.alignments_df = parser.alignments_df
         self.logger.info("\tFound {:,} total reads".format(len(self.all_df)))
 
-        # Save df wiews and compute scaling factors
-        if sample and len(self.all_df)>sample:
+        # Save df views and compute scaling factors
+        if sample and len(self.all_df) > sample:
             self.all_sample_df = self.all_df.sample(n=sample, random_state=SEED)
             self.all_scaling_factor = len(self.all_df)/sample
         else:
             self.all_sample_df = self.all_df
             self.all_scaling_factor = 1
 
+        # Pass df
         self.pass_df = self.all_df.query("mean_qscore>={} and read_len>={}".format(min_pass_qual, min_pass_len))
         if sample and len(self.pass_df) > sample:
             self.pass_sample_df = self.pass_df.sample(n=sample, random_state=SEED)
@@ -85,8 +85,19 @@ class pycoQC_plot():
         else:
             self.pass_sample_df = self.pass_df
             self.pass_scaling_factor = 1
-        self.logger.info("\tFound {:,} pass reads(qual >= {} and length >= {})".format(
+        self.logger.info("\tFound {:,} pass reads (qual >= {} and length >= {})".format(
             len(self.pass_df), min_pass_qual, min_pass_len))
+
+        # Fail df
+        self.fail_df = self.all_df.query("mean_qscore<{} or read_len<{}".format(min_pass_qual, min_pass_len))
+        if sample and len(self.fail_df) > sample:
+            self.fail_sample_df = self.fail_df.sample(n=sample, random_state=SEED)
+            self.fail_scaling_factor = len(self.fail_df) / sample
+        else:
+            self.fail_sample_df = self.fail_df
+            self.fail_scaling_factor = 1
+        self.logger.info("\tFound {:,} fail reads (qual < {} and length < {})".format(
+            len(self.fail_df), min_pass_qual, min_pass_len))
 
     def __str__(self):
         m = ""
@@ -94,12 +105,24 @@ class pycoQC_plot():
         m += "\tAlignment: {}\n".format(self.has_alignment)
         m += "\tPromethion: {}\n".format(self.is_promethion)
         m += "\tFlongle: {}\n".format(self.is_flongle)
+
+        # Length
         m += "\tAll reads: {:,}\n".format(len(self.all_df))
         m += "\tAll bases: {:,}\n".format(int(self.all_df["read_len"].sum()))
         m += "\tAll median read length: {:,}\n".format(np.median(self.all_df["read_len"]))
         m += "\tPass reads: {:,}\n".format(len(self.pass_df))
         m += "\tPass bases: {:,}\n".format(int(self.pass_df["read_len"].sum()))
         m += "\tPass median read length: {:,}\n".format(np.median(self.pass_df["read_len"]))
+        m += "\tFail reads: {:,}\n".format(len(self.fail_df))
+        m += "\tFail bases: {:,}\n".format(int(self.fail_df["read_len"].sum()))
+        m += "\tFail median read length: {:,}\n".format(np.median(self.fail_df["read_len"]))
+
+        # %GC
+        if '%GC' in self.all_df:
+            m += "\tAll median %GC: {:,}\n".format(np.median(self.all_df["%GC"]))
+            m += "\tPass median read length: {:,}\n".format(np.median(self.pass_df["%GC"]))
+            m += "\tFail median %GC: {:,}\n".format(np.median(self.fail_df["%GC"]))
+
         return m
 
     def __repr__(self):
@@ -141,7 +164,17 @@ class pycoQC_plot():
         return int(df["run_id"].nunique())
 
     def _barcodes_number(self, df):
-        return int(df["barcode"].nunique()) if self.has_barcodes else 0
+        n_bc = 0
+        if self.has_barcodes:
+            n_bc = int(df["barcode"].nunique())
+            if 'unclassified' in df["barcode"].values:
+                n_bc -= 1
+        return n_bc
+
+    def _barcodes_count(self, df):
+        counts = df["barcode"].value_counts()
+        counts = counts.sort_index()
+        return counts.to_frame()
 
     def _basecalled_reads(self, df):
         return len(df)
@@ -257,7 +290,7 @@ class pycoQC_plot():
 
     def run_summary(self,
                     width: int = None,
-                    height: int = 300,
+                    height: int = 350,
                     plot_title: str = "General run summary"):
         """
         Plot an interactive overall summary table
@@ -266,13 +299,13 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
         # Extract data
         data = []
-        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df)):
+        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df), ("Fail Reads", self.fail_df)):
             data.append([
                 status,
                 self._run_duration(df),
@@ -284,7 +317,7 @@ class pycoQC_plot():
             width=width,
             height=height,
             plot_title=plot_title,
-            header=["Status", "Run Duration(h)", "Active Channels", "Number of Runids", "Number of Barcodes"],
+            header=["Status", "Run Duration(h)", "Active Channels", "Number of RunIDs", "Number of Barcodes"],
             data_format=["", ".2f", "", "", ""],
             data=[*zip(*data)])
 
@@ -292,7 +325,7 @@ class pycoQC_plot():
 
     def basecall_summary(self,
                          width: int = None,
-                         height: int = 300,
+                         height: int = 350,
                          plot_title: str = "Basecall summary"):
         """
         Plot an interactive basecall summary table
@@ -301,35 +334,44 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
         # Extract data
         data = []
-        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df)):
+        i = 0
+        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df), ("Fail Reads", self.fail_df)):
             data.append([
                 status,
                 self._basecalled_reads(df),
                 self._basecalled_bases(df),
                 self._basecall_N50(df),
                 self._basecall_median_read_len(df),
-                self._basecall_median_read_qscore(df),
-                self._basecall_median_read_gc(df)])
+                self._basecall_median_read_qscore(df)])
+            if '%GC' in self.all_df:
+                data[i].append(self._basecall_median_read_gc(df))
+                i += 1
+
+        fig_header_list = ["Status", "Reads", "Bases", "N50", "Median Length", "Median Q-score"]
+        data_format_list = ["", ",", ",", ",", ",", ".1f"]
+        if '%GC' in self.all_df:
+            fig_header_list.append("Median %GC")
+            data_format_list.append(".1f")
 
         fig = self.__summary_plot(
             width=width,
             height=height,
             plot_title=plot_title,
-            header=["Status", "Reads", "Bases", "N50", "Median Read Length", "Median PHRED score", "Median %GC"],
-            data_format=["", ".6e", ".6e", ".3r", ".3r", ".3f", ".3f"],
+            header=fig_header_list,
+            data_format=data_format_list,
             data=[*zip(*data)])
 
         return fig
 
     def alignment_summary(self,
                           width: int = None,
-                          height: int = 300,
+                          height: int = 350,
                           plot_title: str = "Alignment summary"):
         """
         Plot an interactive alignment summary table
@@ -338,16 +380,16 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
         # Verify that alignment information are available
         if not self.has_alignment:
-            raise pycoQCError("No Alignment information available")
+            raise pycoQCError("No alignment information available")
 
         data = []
-        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df)):
+        for status, df in (("All Reads", self.all_df), ("Pass Reads", self.pass_df), ("Fail Reads", self.fail_df)):
             data.append([
                 status,
                 self._aligned_reads(df),
@@ -362,10 +404,78 @@ class pycoQC_plot():
             height=height,
             plot_title=plot_title,
             header=["Status", "Reads", "Bases", "Mean Coverage", "N50", "Median Read Length", "Median Identity Freq"],
-            data_format=["", ".6e", ".6e", ".3r", ".3r", ".3r", ".3f"],
+            data_format=["", ",", ",", ".1f", ",", ".1r", ".1f"],
             data=[*zip(*data)])
 
         return fig
+
+    def barcode_summary(self,
+                        width: int = 600,
+                        height: int = 400,
+                        plot_title: str = "Barcode summary"):
+        """
+        Plot an interactive barcode summary table
+        * groupby
+            Value of field to group the data in the table
+        * width
+            With of the plotting area in pixel
+        * height
+            Height of the plotting area in pixel
+        * plot_title
+            Title to display on top of the plot
+        """
+        # Verify that barcode information are available
+        if not self.has_barcodes:
+            raise pycoQCError("No barcode information available")
+
+        fig = self.__barcode_count_plot(
+            width=width,
+            height=height,
+            plot_title=plot_title,
+            header=["Barcode", "Count"],
+            data_format=["", ","])
+
+        return fig
+
+    def __barcode_count_plot(self, width, height, plot_title, header, data_format):
+        """Private function generating summary table plots"""
+        self.logger.info("\t\tComputing plot")
+
+        # Prepare all data
+        lab1, dd1 = self.__barcode_counts_data(df_level="all")
+        lab2, dd2 = self.__barcode_counts_data(df_level="pass")
+        lab3, dd3 = self.__barcode_counts_data(df_level="fail")
+
+        # Plot initial data
+        data = [go.Table(
+            header={
+                "values": header,
+                "align": "center", "fill": {"color": "grey"},
+                "font": {"size": 14, "color": "white"},
+                "height": 40},
+            cells={
+                "values": [dd1['labels'][0], dd1['values'][0]],
+                "format": data_format,
+                "align": "center",
+                "fill": {"color": "whitesmoke"},
+                "font": {"size": 12}, "height": 30})]
+
+        # Create update buttons
+        updatemenus = [
+            dict(type="buttons", active=0, x=-0.06, y=0, xanchor='right', yanchor='bottom',
+                 buttons=[dict(label=lab1, method='update', args=[dd1]),
+                          dict(label=lab2, method='update', args=[dd2]),
+                          dict(label=lab3, method='update', args=[dd3])
+                          ])]
+
+        # tweak plot layout
+        layout = go.Layout(
+            width=width,
+            height=height,
+            updatemenus=updatemenus,
+            title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
+
+        return go.Figure(data=data, layout=layout)
 
     def __summary_plot(self, width, height, plot_title, header, data_format, data):
         """Private function generating summary table plots"""
@@ -397,7 +507,7 @@ class pycoQC_plot():
     def read_len_1D(self,
                     color: str = "lightsteelblue",
                     nbins: int = 200,
-                    smooth_sigma: float = 2,
+                    smooth_sigma: int = 2,
                     width: int = None,
                     height: int = 500,
                     plot_title: str = "Basecalled reads length"):
@@ -406,13 +516,13 @@ class pycoQC_plot():
         * color
             Color of the area(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
         * nbins
-            Number of bins to devide the x axis in
+            Number of bins to devide the x-axis in
         * smooth_sigma
             standard deviation for Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -431,7 +541,7 @@ class pycoQC_plot():
     def read_qual_1D(self,
                      color: str = "salmon",
                      nbins: int = 200,
-                     smooth_sigma: float = 2,
+                     smooth_sigma: int = 2,
                      width: int = None,
                      height: int = 500,
                      plot_title: str = "Basecalled reads PHRED quality"):
@@ -440,13 +550,13 @@ class pycoQC_plot():
         * color
             Color of the area(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
         * nbins
-            Number of bins to devide the x axis in
+            Number of bins to devide the x-axis in
         * smooth_sigma
             standard deviation for Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -462,25 +572,26 @@ class pycoQC_plot():
             height=height)
         return fig
 
-    def align_len_1D(self,
-                     color: str = "mediumseagreen",
-                     nbins: int = 200,
-                     smooth_sigma: float = 2,
-                     width: int = None,
-                     height: int = 500,
-                     plot_title: str = "Aligned reads length"):
+    def align_len_1D(
+            self,
+            color: str = "mediumseagreen",
+            nbins: int = 200,
+            smooth_sigma: int = 2,
+            width: int = None,
+            height: int = 500,
+            plot_title: str = "Aligned reads length"):
         """
         Plot a distribution of read length(log scale)
         * color
             Color of the area(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
         * nbins
-            Number of bins to devide the x axis in
+            Number of bins to devide the x-axis in
         * smooth_sigma
             standard deviation for Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -500,25 +611,26 @@ class pycoQC_plot():
             height=height)
         return fig
 
-    def identity_freq_1D(self,
-                         color: str = "sandybrown",
-                         nbins: int = 200,
-                         smooth_sigma: float = 2,
-                         width: int = None,
-                         height: int = 500,
-                         plot_title: str = "Aligned reads identity"):
+    def identity_freq_1D(
+            self,
+            color: str = "sandybrown",
+            nbins: int = 200,
+            smooth_sigma: int = 2,
+            width: int = None,
+            height: int = 500,
+            plot_title: str = "Aligned reads identity"):
         """
         Plot a distribution of alignments identity
         * color
             Color of the area(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
         * nbins
-            Number of bins to devide the x axis in
+            Number of bins to devide the x-axis in
         * smooth_sigma
             standard deviation for Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -545,13 +657,14 @@ class pycoQC_plot():
         # Prepare all data
         lab1, dd1, ld1 = self.__1D_density_data("all", field_name, x_scale, nbins, smooth_sigma)
         lab2, dd2, ld2 = self.__1D_density_data("pass", field_name, x_scale, nbins, smooth_sigma)
+        lab3, dd3, ld3 = self.__1D_density_data("fail", field_name, x_scale, nbins, smooth_sigma)
 
         # Plot initial data
         common = {
             "mode": "lines+text",
             "hoverinfo": "skip",
             "textposition": 'top center',
-            "line":  {'color':'gray','width':1,'dash': 'dot'}}
+            "line":  {'color': 'gray', 'width': 1, 'dash': 'dot'}}
         data = [
             go.Scatter(x=dd1["x"][0], y=dd1["y"][0], name=dd1["name"][0], fill='tozeroy', fillcolor=color, mode='none',
                        showlegend=True),
@@ -563,9 +676,11 @@ class pycoQC_plot():
 
         # Create update buttons
         updatemenus = [
-            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
-                dict(label=lab1, method='update', args=[dd1, ld1]),
-                dict(label=lab2, method='update', args=[dd2, ld2])])]
+            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
+                 buttons=[dict(label=lab1, method='update', args=[dd1, ld1]),
+                          dict(label=lab2, method='update', args=[dd2, ld2]),
+                          dict(label=lab3, method='update', args=[dd3, ld3])]
+                 )]
 
         # tweak plot layout
         layout = go.Layout(
@@ -588,7 +703,13 @@ class pycoQC_plot():
         self.logger.debug("\t\tPreparing data for {} reads and {}".format(df_level, field_name))
 
         # Get data
-        df = self.pass_sample_df if df_level == "pass" else self.all_sample_df
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == "fail":
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
         data = df[field_name].dropna().values
 
         # Count each categories in log or linear space
@@ -598,6 +719,8 @@ class pycoQC_plot():
             count_y, bins = np.histogram(a=data, bins=np.logspace(np.log10(min_val), np.log10(maxval)+0.1, nbins))
         elif x_scale == "linear":
             count_y, bins = np.histogram(a=data, bins=np.linspace(min_val, maxval, nbins))
+        else:  # That would generate an error
+            count_y, bins = '', ''
 
         # Remove last bin from labels
         count_x = bins[1:]
@@ -639,7 +762,7 @@ class pycoQC_plot():
                                   [1.0, 'rgb(70,0,0)']),
                               x_nbins: int = 200,
                               y_nbins: int = 100,
-                              smooth_sigma: float = 2,
+                              smooth_sigma: int = 2,
                               width: int = None,
                               height: int = 600,
                               plot_title: str = "Basecalled reads length vs reads PHRED quality"):
@@ -648,15 +771,15 @@ class pycoQC_plot():
         * colorscale
             a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
         * x_nbins
-            Number of bins to divide the read length values in(x axis)
+            Number of bins to divide the read length values in(x-axis)
         * y_nbins
-            Number of bins to divide the read quality values in(y axis)
+            Number of bins to divide the read quality values in(y-axis)
         * smooth_sigma
             standard deviation for 2D Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -687,7 +810,7 @@ class pycoQC_plot():
                     [1.0, 'rgb(0,51,0)']),
             x_nbins: int = 200,
             y_nbins: int = 100,
-            smooth_sigma: float = 2,
+            smooth_sigma: int = 2,
             width: int = None,
             height: int = 600,
             plot_title: str = "Basecalled reads length vs reads %GC"):
@@ -696,32 +819,35 @@ class pycoQC_plot():
         * colorscale
             a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
         * x_nbins
-            Number of bins to divide the read length values in(x axis)
+            Number of bins to divide the read length values in(x-axis)
         * y_nbins
-            Number of bins to divide the read quality values in(y axis)
+            Number of bins to divide the read quality values in(y-axis)
         * smooth_sigma
             standard deviation for 2D Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
-        fig = self.__2D_density_plot(
-            x_field_name="read_len",
-            y_field_name="%GC",
-            x_lab="Basecalled length",
-            y_lab="%GC",
-            x_scale="log",
-            y_scale="linear",
-            x_nbins=x_nbins,
-            y_nbins=y_nbins,
-            colorscale=colorscale,
-            smooth_sigma=smooth_sigma,
-            width=width,
-            height=height,
-            plot_title=plot_title)
+        if '%GC' in self.all_df:
+            fig = self.__2D_density_plot(
+                x_field_name="read_len",
+                y_field_name="%GC",
+                x_lab="Basecalled length",
+                y_lab="%GC",
+                x_scale="log",
+                y_scale="linear",
+                x_nbins=x_nbins,
+                y_nbins=y_nbins,
+                colorscale=colorscale,
+                smooth_sigma=smooth_sigma,
+                width=width,
+                height=height,
+                plot_title=plot_title)
+        else:
+            fig = go.Figure()
         return fig
 
     def read_len_align_len_2D(self,
@@ -734,7 +860,7 @@ class pycoQC_plot():
                                       [1.0, 'rgb(70,0,0)']),
                               x_nbins: int = 200,
                               y_nbins: int = 100,
-                              smooth_sigma: float = 1,
+                              smooth_sigma: int = 1,
                               width: int = None,
                               height: int = 600,
                               plot_title: str = "Basecalled reads length vs alignments length"):
@@ -743,15 +869,15 @@ class pycoQC_plot():
         * colorscale
             a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
         * x_nbins
-            Number of bins to divide the read length values in(x axis)
+            Number of bins to divide the read length values in(x-axis)
         * y_nbins
-            Number of bins to divide the read quality values in(y axis)
+            Number of bins to divide the read quality values in(y-axis)
         * smooth_sigma
             standard deviation for 2D Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -786,7 +912,7 @@ class pycoQC_plot():
                     [1.0, 'rgb(70,0,0)']),
             x_nbins: int = 200,
             y_nbins: int = 100,
-            smooth_sigma: float = 2,
+            smooth_sigma: int = 2,
             width: int = None,
             height: int = 600,
             plot_title: str = "Aligned reads length vs alignments identity"):
@@ -795,15 +921,15 @@ class pycoQC_plot():
         * colorscale
             a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
         * x_nbins
-            Number of bins to divide the read length values in(x axis)
+            Number of bins to divide the read length values in(x-axis)
         * y_nbins
-            Number of bins to divide the read quality values in(y axis)
+            Number of bins to divide the read quality values in(y-axis)
         * smooth_sigma
             standard deviation for 2D Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -838,7 +964,7 @@ class pycoQC_plot():
                     [1.0, 'rgb(70,0,0)']),
             x_nbins: int = 200,
             y_nbins: int = 100,
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             width: int = None,
             height: int = 600,
             plot_title: str = "Reads PHRED quality vs alignments identity"):
@@ -847,15 +973,15 @@ class pycoQC_plot():
         * colorscale
             a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
         * x_nbins
-            Number of bins to divide the read length values in(x axis)
+            Number of bins to divide the read length values in(x-axis)
         * y_nbins
-            Number of bins to divide the read quality values in(y axis)
+            Number of bins to divide the read quality values in(y-axis)
         * smooth_sigma
             standard deviation for 2D Gaussian kernel
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -891,6 +1017,8 @@ class pycoQC_plot():
                                            x_scale, y_scale, smooth_sigma)
         lab2, dd2 = self.__2D_density_data("pass", x_field_name, y_field_name, x_nbins, y_nbins,
                                            x_scale, y_scale, smooth_sigma)
+        lab3, dd3 = self.__2D_density_data("fail", x_field_name, y_field_name, x_nbins, y_nbins,
+                                           x_scale, y_scale, smooth_sigma)
 
         # Plot initial data
         data = [
@@ -905,7 +1033,8 @@ class pycoQC_plot():
         updatemenus = [
             dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
                 dict(label=lab1, method='restyle', args=[dd1]),
-                dict(label=lab2, method='restyle', args=[dd2])])]
+                dict(label=lab2, method='restyle', args=[dd2]),
+                dict(label=lab3, method='restyle', args=[dd3])])]
 
         # tweak plot layout
         layout = go.Layout(
@@ -927,35 +1056,43 @@ class pycoQC_plot():
         self.logger.debug("\t\tPreparing data for {} reads".format(df_level))
 
         # Extract data field from df
-        df = self.pass_sample_df if df_level == "pass" else self.all_sample_df
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == 'fail':
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
         df = df[[x_field_name, y_field_name]].dropna()
 
-        # Prepare data for x
-        x_data = df[x_field_name].values
-        x_min, x_med, x_max = np.percentile(x_data, (0, 50, 100))
-        if x_scale == "log":
-            x_bins = np.logspace(start=np.log10(x_min), stop=np.log10(x_max)+0.1, num=x_nbins, base=10)
-        else:
-            x_bins = np.linspace(start=x_min, stop=x_max, num=x_nbins)
+        data_dict = dict()
+        if not df.empty:
+            # Prepare data for x
+            x_data = df[x_field_name].values
+            x_min, x_med, x_max = np.percentile(x_data, (0, 50, 100))
+            if x_scale == "log":
+                x_bins = np.logspace(start=np.log10(x_min), stop=np.log10(x_max)+0.1, num=x_nbins, base=10)
+            else:
+                x_bins = np.linspace(start=x_min, stop=x_max, num=x_nbins)
 
-        # Prepare data for y
-        y_data = df[y_field_name].values
-        y_min, y_med, y_max = np.percentile(y_data,(0, 50, 100))
-        if y_scale == "log":
-            y_bins = np.logspace(start=np.log10(y_min), stop=np.log10(y_max)+0.1, num=y_nbins, base=10)
-        else:
-            y_bins = np.linspace(start=y_min, stop=y_max, num=y_nbins)
+            # Prepare data for y
+            y_data = df[y_field_name].values
+            y_min, y_med, y_max = np.percentile(y_data,(0, 50, 100))
+            if y_scale == "log":
+                y_bins = np.logspace(start=np.log10(y_min), stop=np.log10(y_max)+0.1, num=y_nbins, base=10)
+            else:
+                y_bins = np.linspace(start=y_min, stop=y_max, num=y_nbins)
 
-        # Compute 2D histogram
-        z, y, x = np.histogram2d(x=y_data, y=x_data, bins=[y_bins, x_bins])
-        if smooth_sigma:
-            z = gaussian_filter(z, sigma=smooth_sigma)
-        z_min, z_max = np.percentile(z, (0, 100))
+            # Compute 2D histogram
+            z, y, x = np.histogram2d(x=y_data, y=x_data, bins=[y_bins, x_bins])
+            if smooth_sigma:
+                z = gaussian_filter(z, sigma=smooth_sigma)
+            z_min, z_max = np.percentile(z, (0, 100))
 
-        # Extract label and values
-        data_dict = dict(
-            x=[x, [x_med]], y=[y, [y_med]], z=[z, None],
-            contours=[dict(start=z_min, end=z_max, size=(z_max-z_min) / 15), None])
+            # Extract label and values
+            data_dict = dict(
+                x=[x, [x_med]], y=[y, [y_med]], z=[z, None],
+                contours=[dict(start=z_min, end=z_max, size=(z_max-z_min) / 15), None])
 
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict
@@ -967,7 +1104,7 @@ class pycoQC_plot():
             interval_color: str = "rgb(102,168,255)",
             time_bins: int = 500,
             width: int = None,
-            height: int = 500,
+            height: int = 550,
             plot_title: str = "Output over experiment time"):
         """
         Plot a yield over time
@@ -976,7 +1113,7 @@ class pycoQC_plot():
         * interval_color
             Color of interval yield line(hex, rgb, rgba, hsl, hsv or any CSS named colors https://www.w3.org/TR/css-color-3/#svg-color
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -989,8 +1126,10 @@ class pycoQC_plot():
         # Prepare all data
         lab1, dd1, ld1 = self.__output_over_time_data(df_level="all", count_level="reads", time_bins=time_bins)
         lab2, dd2, ld2 = self.__output_over_time_data(df_level="pass", count_level="reads", time_bins=time_bins)
-        lab3, dd3, ld3 = self.__output_over_time_data(df_level="all", count_level="bases", time_bins=time_bins)
-        lab4, dd4, ld4 = self.__output_over_time_data(df_level="pass", count_level="bases", time_bins=time_bins)
+        lab3, dd3, ld3 = self.__output_over_time_data(df_level="fail", count_level="reads", time_bins=time_bins)
+        lab4, dd4, ld4 = self.__output_over_time_data(df_level="all", count_level="bases", time_bins=time_bins)
+        lab5, dd5, ld5 = self.__output_over_time_data(df_level="pass", count_level="bases", time_bins=time_bins)
+        lab6, dd6, ld6 = self.__output_over_time_data(df_level="fail", count_level="bases", time_bins=time_bins)
 
         # Plot initial data
         common = {
@@ -1012,10 +1151,12 @@ class pycoQC_plot():
         # Create update buttons
         updatemenus = [
             dict(type="buttons", active=0, x=-0.06, y=0, xanchor='right', yanchor='bottom', buttons=[
-                dict(label=lab1,  method='update', args=[dd1, ld1]),
+                dict(label=lab1, method='update', args=[dd1, ld1]),
                 dict(label=lab2, method='update', args=[dd2, ld2]),
-                dict(label=lab3,  method='update', args=[dd3, ld3]),
-                dict(label=lab4, method='update', args=[dd4, ld4])])]
+                dict(label=lab3, method='update', args=[dd3, ld3]),
+                dict(label=lab4, method='update', args=[dd4, ld4]),
+                dict(label=lab5, method='update', args=[dd5, ld5]),
+                dict(label=lab6, method='update', args=[dd6, ld6])])]
 
         # tweak plot layout
         layout = go.Layout(
@@ -1025,7 +1166,7 @@ class pycoQC_plot():
             updatemenus=updatemenus,
             legend={"x": -0.05, "y": 1, "xanchor": 'right', "yanchor": 'top'},
             title={"text": plot_title, "xref": "paper", "x": .5, "xanchor": "center"},
-            xaxis={"title": "Experiment time(h)", "zeroline": False, "showline": True},
+            xaxis={"title": "Experiment time (h)", "zeroline": False, "showline": True},
             yaxis={"title": "Count", "zeroline": False, "showline": True, "fixedrange": True,
                    "range": ld1["yaxis.range"]})
 
@@ -1036,8 +1177,19 @@ class pycoQC_plot():
         self.logger.debug("\t\tPreparing data for {} {}".format(df_level, count_level))
 
         # Get data and scaling factor
-        df = self.pass_sample_df if df_level == "pass" else self.all_sample_df
-        sf = self.pass_scaling_factor if df_level == "pass" else self.all_scaling_factor
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == "fail":
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
+        if df_level == "pass":
+            sf = self.pass_scaling_factor
+        elif df_level == "fail":
+            sf = self.fail_scaling_factor
+        else:
+            sf = self.all_scaling_factor
 
         # Bin data in categories
         t = (df["start_time"] / 3600).values
@@ -1049,11 +1201,13 @@ class pycoQC_plot():
             y = np.bincount(t)
         elif count_level == "bases":
             y = np.bincount(t, weights=df["read_len"].values)
+        else:
+            y = 0  # Should not get here
 
-        # Scale counts in case of downsampling
+        # Scale counts in case of down-sampling
         y = y * sf
 
-        # Transform to cummulative distribution
+        # Transform to cumulative distribution
         y_cum = np.cumsum(y)
         y_cum_max = y_cum[-1]
 
@@ -1065,11 +1219,11 @@ class pycoQC_plot():
         lab_text = []
         lab_name = []
         lab_x = []
-        for lab in(50, 75, 90, 99, 100):
-            val = y_cum_max*lab/100
+        for lab in (50, 75, 90, 99, 100):
+            val = y_cum_max * lab / 100
             idx = (np.abs(y_cum-val)).argmin()
             lab_text.append(["", '{}%<br>{}h<br>{:,} {}'.format(
-                lab, round(x[idx], 2), int(y_cum[idx]),count_level)])
+                lab, round(x[idx], 2), int(y_cum[idx]), count_level)])
             lab_x.append([x[idx], x[idx]])
             lab_name.append("{}%".format(lab))
 
@@ -1092,10 +1246,10 @@ class pycoQC_plot():
             median_color: str = "rgb(102,168,255)",
             quartile_color: str = "rgb(153,197,255)",
             extreme_color: str = "rgba(153,197,255,0.5)",
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             time_bins: int = 500,
             width: int = None,
-            height: int = 500,
+            height: int = 550,
             plot_title: str = "Read length over experiment time"):
         """
         Plot a read length over time
@@ -1108,7 +1262,7 @@ class pycoQC_plot():
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -1119,7 +1273,7 @@ class pycoQC_plot():
         fig = self.__over_time_plot(
             field_name="read_len",
             plot_title=plot_title,
-            y_lab="Alignment length",
+            y_lab="Read length",
             y_scale="log",
             median_color=median_color,
             quartile_color=quartile_color,
@@ -1135,7 +1289,7 @@ class pycoQC_plot():
             median_color: str = "rgb(250,128,114)",
             quartile_color: str = "rgb(250,170,160)",
             extreme_color: str = "rgba(250,170,160,0.5)",
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             time_bins: int = 500,
             width: int = None,
             height: int = 500,
@@ -1151,7 +1305,7 @@ class pycoQC_plot():
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -1179,7 +1333,7 @@ class pycoQC_plot():
             median_color: str = "rgb(51,153,0)",
             quartile_color: str = "rgb(85,255,0)",
             extreme_color: str = "rgba(153,255,102,0.5)",
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             time_bins: int = 500,
             width: int = None,
             height: int = 500,
@@ -1195,7 +1349,7 @@ class pycoQC_plot():
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -1203,19 +1357,21 @@ class pycoQC_plot():
         * plot_title
             Title to display on top of the plot
         """
-
-        fig = self.__over_time_plot(
-            field_name="%GC",
-            plot_title=plot_title,
-            y_lab="Mean read %GC",
-            y_scale="linear",
-            median_color=median_color,
-            quartile_color=quartile_color,
-            extreme_color=extreme_color,
-            smooth_sigma=smooth_sigma,
-            time_bins=time_bins,
-            width=width,
-            height=height)
+        if '%GC' in self.all_df:
+            fig = self.__over_time_plot(
+                field_name="%GC",
+                plot_title=plot_title,
+                y_lab="Mean read %GC",
+                y_scale="linear",
+                median_color=median_color,
+                quartile_color=quartile_color,
+                extreme_color=extreme_color,
+                smooth_sigma=smooth_sigma,
+                time_bins=time_bins,
+                width=width,
+                height=height)
+        else:
+            fig = go.Figure()
         return fig
 
     def align_len_over_time(
@@ -1223,7 +1379,7 @@ class pycoQC_plot():
             median_color: str = "rgb(102,168,255)",
             quartile_color: str = "rgb(153,197,255)",
             extreme_color: str = "rgba(153,197,255,0.5)",
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             time_bins:int = 500,
             width: int = None,
             height: int = 500,
@@ -1239,7 +1395,7 @@ class pycoQC_plot():
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -1265,15 +1421,16 @@ class pycoQC_plot():
             height=height)
         return fig
 
-    def identity_freq_over_time(self,
-        median_color:str="rgb(250,128,114)",
-        quartile_color:str="rgb(250,170,160)",
-        extreme_color:str="rgba(250,170,160,0.5)",
-        smooth_sigma:float=1,
-        time_bins:int=500,
-        width:int=None,
-        height:int=500,
-        plot_title:str="Aligned reads identity over experiment time"):
+    def identity_freq_over_time(
+            self,
+            median_color: str = "rgb(250,128,114)",
+            quartile_color: str = "rgb(250,170,160)",
+            extreme_color: str = "rgba(250,170,160,0.5)",
+            smooth_sigma: int = 1,
+            time_bins: int = 500,
+            width: int = None,
+            height: int = 500,
+            plot_title: str = "Aligned reads identity over experiment time"):
         """
         Plot the alignment identity scores over time
         * median_color
@@ -1285,7 +1442,7 @@ class pycoQC_plot():
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(x axis)
+            Number of bins to divide the time values in(x-axis)
         * width
             With of the plotting area in pixel
         * height
@@ -1317,14 +1474,18 @@ class pycoQC_plot():
         """Private function generating density plots for all over_time functions"""
         self.logger.info("\t\tComputing plot")
 
-        lab1, dd1 = self.__over_time_data(df_level="all", field_name=field_name, smooth_sigma=smooth_sigma, time_bins=time_bins)
-        lab2, dd2 = self.__over_time_data(df_level="pass", field_name=field_name, smooth_sigma=smooth_sigma, time_bins=time_bins)
+        lab1, dd1 = self.__over_time_data(df_level="all", field_name=field_name, smooth_sigma=smooth_sigma,
+                                          time_bins=time_bins)
+        lab2, dd2 = self.__over_time_data(df_level="pass", field_name=field_name, smooth_sigma=smooth_sigma,
+                                          time_bins=time_bins)
+        lab3, dd3 = self.__over_time_data(df_level="fail", field_name=field_name, smooth_sigma=smooth_sigma,
+                                          time_bins=time_bins)
 
         # Plot initial data
         common = {
             "mode": "lines",
             "connectgaps": True}
-        data= [
+        data = [
             go.Scatter(x=dd1["x"][0], y=dd1["y"][0], name=dd1["name"][0], line={"color": extreme_color},
                        legendgroup="Extreme", **common),
             go.Scatter(x=dd1["x"][1], y=dd1["y"][1], name=dd1["name"][1], fill="tonexty",
@@ -1338,10 +1499,9 @@ class pycoQC_plot():
         # Create update buttons
         updatemenus = [
             go.layout.Updatemenu(type="buttons", active=0, x=-0.07, y=0, xanchor='right', yanchor='bottom', buttons=[
-                go.layout.updatemenu.Button(
-                    label=lab1, method='restyle', args=[dd1]),
-                go.layout.updatemenu.Button(
-                    label=lab2, method='restyle', args=[dd2])])]
+                go.layout.updatemenu.Button(label=lab1, method='restyle', args=[dd1]),
+                go.layout.updatemenu.Button(label=lab2, method='restyle', args=[dd2]),
+                go.layout.updatemenu.Button(label=lab3, method='restyle', args=[dd3])])]
 
         # tweak plot layout
         layout = go.Layout(
@@ -1361,8 +1521,14 @@ class pycoQC_plot():
         """Private function preparing data for qual_over_time"""
         self.logger.debug("\t\tPreparing data for {} reads and {}".format(df_level, field_name))
 
-        # get data
-        df = self.pass_sample_df if df_level == "pass" else self.all_sample_df
+        # Get data
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == 'fail':
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
         data = df[field_name].dropna().values
 
         # Bin data in categories
@@ -1373,15 +1539,15 @@ class pycoQC_plot():
         # List quality value per categories
         bin_dict = defaultdict(list)
         for bin_idx, val in zip(t, data):
-            bin = x[bin_idx]
-            bin_dict[bin].append(val)
+            my_bin = x[bin_idx]
+            bin_dict[my_bin].append(val)
 
         # Aggregate values per category
         val_name = ["Min", "Max", "25%", "75%", "Median"]
         stat_dict = defaultdict(list)
-        for bin in x:
-            if bin in bin_dict:
-                p = np.percentile(bin_dict[bin], [0, 100, 25, 75, 50])
+        for my_bin in x:
+            if my_bin in bin_dict:
+                p = np.percentile(bin_dict[my_bin], [0, 100, 25, 75, 50])
             else:
                 p = [np.nan, np.nan, np.nan, np.nan, np.nan]
             for val, stat in zip(val_name, p):
@@ -1399,7 +1565,7 @@ class pycoQC_plot():
             name=val_name)
 
         label = "{} Reads".format(df_level.capitalize())
-        return(label, data_dict)
+        return label, data_dict
 
     #~~~~~~~BARCODE_COUNT METHODS AND HELPER~~~~~~~#
     def barcode_counts(
@@ -1427,6 +1593,7 @@ class pycoQC_plot():
         # Prepare all data
         lab1, dd1 = self.__barcode_counts_data(df_level="all")
         lab2, dd2 = self.__barcode_counts_data(df_level="pass")
+        lab3, dd3 = self.__barcode_counts_data(df_level="fail")
 
         # Plot initial data
         data = [go.Pie(labels=dd1["labels"][0], values=dd1["values"][0], sort=False, marker=dict(colors=colors))]
@@ -1434,8 +1601,9 @@ class pycoQC_plot():
         # Create update buttons
         updatemenus = [
             dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
-                dict(label=lab1, method='restyle', args=[dd1]),
-                dict(label=lab2, method='restyle', args=[dd2])])]
+                dict(label=lab1, method='update', args=[dd1]),
+                dict(label=lab2, method='update', args=[dd2]),
+                dict(label=lab3, method='update', args=[dd3])])]
 
         # tweak plot layout
         layout = go.Layout(
@@ -1452,8 +1620,15 @@ class pycoQC_plot():
         """Private function preparing data for barcode_counts"""
         self.logger.debug("\t\tPreparing data for {} reads".format(df_level))
 
-        # get data
-        df = self.pass_df if df_level == "pass" else self.all_df
+        # Get data
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == 'fail':
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
+        # TODO: somehow "all" and "pass" are inverted
         counts = df["barcode"].value_counts()
         counts = counts.sort_index()
 
@@ -1475,7 +1650,7 @@ class pycoQC_plot():
                     [0.5, 'rgb(200,0,0)'],
                     [0.75, 'rgb(120,0,0)'],
                     [1.0, 'rgb(0,0,0)']),
-            smooth_sigma: float = 1,
+            smooth_sigma: int = 1,
             time_bins: int = 100,
             width: int = None,
             height: int = 600,
@@ -1483,15 +1658,15 @@ class pycoQC_plot():
         """
         Plot a yield over time
         * colorscale
-            a valid plotly color scale https://plot.ly/python/colorscales/(Not recommanded to change)
+            a valid plotly color scale https://plot.ly/python/colorscales/(Not recommended to change)
         * smooth_sigma
             sigma parameter for the Gaussian filter line smoothing
         * time_bins
-            Number of bins to divide the time values in(y axis)
+            Number of bins to divide the time values in(y-axis)
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -1511,9 +1686,13 @@ class pycoQC_plot():
                                                   smooth_sigma=smooth_sigma, time_bins=time_bins)
         lab2, dd2 = self.__channels_activity_data(df_level="pass", count_level="reads", n_channels=n_channels,
                                                   smooth_sigma=smooth_sigma, time_bins=time_bins)
-        lab3, dd3 = self.__channels_activity_data(df_level="all", count_level="bases", n_channels=n_channels,
+        lab3, dd3 = self.__channels_activity_data(df_level="fail", count_level="reads", n_channels=n_channels,
                                                   smooth_sigma=smooth_sigma, time_bins=time_bins)
-        lab4, dd4 = self.__channels_activity_data(df_level="pass", count_level="bases", n_channels=n_channels,
+        lab4, dd4 = self.__channels_activity_data(df_level="all", count_level="bases", n_channels=n_channels,
+                                                  smooth_sigma=smooth_sigma, time_bins=time_bins)
+        lab5, dd5 = self.__channels_activity_data(df_level="pass", count_level="bases", n_channels=n_channels,
+                                                  smooth_sigma=smooth_sigma, time_bins=time_bins)
+        lab6, dd6 = self.__channels_activity_data(df_level="fail", count_level="bases", n_channels=n_channels,
                                                   smooth_sigma=smooth_sigma, time_bins=time_bins)
 
         # Plot initial data
@@ -1526,7 +1705,9 @@ class pycoQC_plot():
                 dict(label=lab1, method='restyle', args=[dd1]),
                 dict(label=lab2, method='restyle', args=[dd2]),
                 dict(label=lab3, method='restyle', args=[dd3]),
-                dict(label=lab4, method='restyle', args=[dd4])])]
+                dict(label=lab4, method='restyle', args=[dd4]),
+                dict(label=lab5, method='restyle', args=[dd5]),
+                dict(label=lab6, method='restyle', args=[dd6])])]
 
         # tweak plot layout
         layout = go.Layout(
@@ -1546,8 +1727,19 @@ class pycoQC_plot():
         self.logger.debug("\t\tPreparing data for {} {}".format(df_level, count_level))
 
         # Get data and scaling factor
-        df = self.pass_sample_df if df_level == "pass" else self.all_sample_df
-        sf = self.pass_scaling_factor if df_level == "pass" else self.all_scaling_factor
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == 'fail':
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
+        if df_level == "pass":
+            sf = self.pass_scaling_factor
+        elif df_level == 'fail':
+            sf = self.fail_scaling_factor
+        else:
+            sf = self.all_scaling_factor
 
         # Bin data in categories
         t = (df["start_time"] / 3600).values
@@ -1567,7 +1759,7 @@ class pycoQC_plot():
                     print(t_idx, channel)
                     raise
         # Scale counts in case of downsampling
-        z=z*sf
+        z = z * sf
 
         # Time series smoothing
         if smooth_sigma:
@@ -1586,7 +1778,7 @@ class pycoQC_plot():
     #~~~~~~~ALIGNMENT_SUMMARY METHOD~~~~~~~#
     def alignment_reads_status(
             self,
-            colors: list = ("#f44f39","#fc8161","#fcaf94","#828282"),
+            colors: list = ("#f44f39", "#fc8161", "#fcaf94", "#828282"),
             width: int = None,
             height: int = 500,
             plot_title: str = "Summary of reads alignment status"):
@@ -1597,7 +1789,7 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -1613,7 +1805,7 @@ class pycoQC_plot():
         # plot Table
         data = go.Table(
             columnwidth=[3,2,2],
-            header={"values":list(df.columns), "align": "center", "fill_color": "grey", "font_size": 14,
+            header={"values": list(df.columns), "align": "center", "fill_color": "grey", "font_size": 14,
                     "font_color": "white", "height": 40},
             cells={"values": df.values.T, "align": "center", "fill_color": "whitesmoke", "font_size": 12, "height": 30})
         fig.add_trace(data, row=1, col=1)
@@ -1640,7 +1832,7 @@ class pycoQC_plot():
     def alignment_rate(
             self,
             colors: list = ("#fcaf94", "#828282", "#fc8161", "#828282", "#f44f39", "#d52221", "#828282",
-                         "#828282", "#828282", "#828282"),
+                            "#828282", "#828282", "#828282"),
             width: int = None,
             height: int = 600,
             plot_title: str = "Bases alignment rate"):
@@ -1651,7 +1843,7 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -1780,7 +1972,7 @@ class pycoQC_plot():
 
         # Plot mean coverage
         data2 = go.Scatter(
-            x=[0,nbins],
+            x=[0, nbins],
             y=[mean_cov, mean_cov],
             name=f"Overall coverage<br>{mean_cov}X",
             mode="lines",
@@ -1842,6 +2034,107 @@ class pycoQC_plot():
             cumsum += rlen
         return offset
 
+    # ~~~~~~~BOXPLOT METHOD AND HELPER~~~~~~~#
+    def length_boxplot_per_sample(self, width: int = None, height: int = 500,
+                                  plot_title: str = "Read length distribution per sample"):
+
+        fig = self.__per_sample_plot(
+            field_name="read_len",
+            plot_title=plot_title,
+            y_lab="Read length",
+            color='blue',
+            width=width,
+            height=height,
+            y_scale='log')
+
+        return fig
+
+    def gc_boxplot_per_sample(self, width: int = None, height: int = 500,
+                              plot_title: str = "%GC distribution per sample"):
+
+        fig = self.__per_sample_plot(
+            field_name="%GC",
+            plot_title=plot_title,
+            y_lab="%GC",
+            color='blue',
+            width=width,
+            height=height,
+            y_scale='linear')
+
+        return fig
+
+    def __per_sample_plot(self, field_name, plot_title, y_lab, color, width, height, y_scale):
+        """Private function generating boxplots plots for all per sample functions"""
+
+        # Verify that barcode information are available
+        if not self.has_barcodes:
+            raise pycoQCError("No barcode information available")
+
+        self.logger.info("\t\tComputing plot")
+
+        # Prepare all data
+        lab1, dd1 = self.__per_sample_data("all", field_name)
+        lab2, dd2 = self.__per_sample_data("pass", field_name)
+        lab3, dd3 = self.__per_sample_data("fail", field_name)
+
+        # Plot initial data
+        # data = list()
+        # for bc in dd1:
+        #     data.append(go.Box(y=bc[1][field_name], name=bc[0]))
+
+        data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False,)]
+        # data = [go.Box(dd1, x='barcode', y='read_len')]
+
+        # Create update buttons
+        updatemenus = [
+            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
+                dict(label=lab1, method='restyle', args=[dd1]),
+                dict(label=lab2, method='restyle', args=[dd2]),
+                dict(label=lab3, method='restyle', args=[dd3])
+                 ])]
+
+        # tweak plot layout
+        layout = go.Layout(
+            hovermode="closest",
+            plot_bgcolor="whitesmoke",
+            legend={"x": -0.2, "y": 1, "xanchor": 'left', "yanchor": 'top'},
+            updatemenus=updatemenus,
+            width=width,
+            height=height,
+            title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"},
+            xaxis={"categoryorder": "category ascending"},
+            yaxis={"title": y_lab, "type": y_scale, "zeroline": False, "showline": True, "fixedrange": True})
+
+        return go.Figure(data=data, layout=layout)
+
+    def __per_sample_data(self, df_level, field_name="read_len"):
+        """Private function preparing data for length_per_sample"""
+
+        self.logger.debug("\t\tPreparing data for {} reads and {}".format(df_level, field_name))
+
+        # Get data and scaling factor
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == 'fail':
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
+        # Extract columns of interest from master dataframe
+        # df1 = df.loc[:, ('barcode', field_name)]
+        # df1 = df1.groupby('barcode', as_index=False)
+
+        # data = df[field_name].dropna().values
+
+        # Make data dict
+        data_dict = dict(
+            x=df['barcode'],
+            y=df[field_name])
+
+        label = "{} Reads".format(df_level.capitalize())
+        return label, data_dict
+        # return label, df1
+
     #~~~~~~~PRIVATE METHODS~~~~~~~#
     @staticmethod
     def _compute_percentiles(data):
@@ -1862,13 +2155,17 @@ class pycoQC_plot():
     def _compute_hist(data, x_scale="linear", smooth_sigma=2, nbins=200):
 
         # Count each categories in log or linear space
-        min = np.nanmin(data)
-        max = np.nanmax(data)
+        min_value = np.nanmin(data)
+        max_value = np.nanmax(data)
 
         if x_scale == "log":
-            count_y, bins = np.histogram(a=data, bins=np.logspace(np.log10(min), np.log10(max) + 0.1, nbins))
+            count_y, bins = np.histogram(a=data, bins=np.logspace(np.log10(min_value),
+                                                                  np.log10(max_value) + 0.1, nbins))
         elif x_scale == "linear":
-            count_y, bins = np.histogram(a=data, bins=np.linspace(min, max, nbins))
+            count_y, bins = np.histogram(a=data, bins=np.linspace(min_value, max_value, nbins))
+        else:  # Should not get here
+            count_y = ''
+            bins = ''
 
         # Remove last bin from labels
         count_x = bins[1:]
@@ -1881,4 +2178,4 @@ class pycoQC_plot():
         count_x = [float(i) for i in count_x]
         count_y = [float(i) for i in count_y]
 
-        return(count_x, count_y)
+        return count_x, count_y

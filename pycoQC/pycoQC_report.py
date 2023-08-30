@@ -23,11 +23,11 @@ from pycoQC import __name__ as package_name
 class pycoQC_report ():
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~INIT METHOD~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-    def __init__ (self,
-        parser:pycoQC_parse,
-        plotter:pycoQC_plot,
-        verbose:bool=False,
-        quiet:bool=False):
+    def __init__(self,
+                 parser: pycoQC_parse,
+                 plotter: pycoQC_plot,
+                 verbose: bool = False,
+                 quiet: bool = False):
         """
         * parser
             A pycoQC_parse object
@@ -39,28 +39,28 @@ class pycoQC_report ():
             Reduce verbosity
         """
         # Set logging level
-        self.logger = get_logger (name=__name__, verbose=verbose, quiet=quiet)
+        self.logger = get_logger(name=__name__, verbose=verbose, quiet=quiet)
 
         # Check that parser is a valid instance of pycoQC_parse
         if not isinstance(parser, pycoQC_parse):
-            raise pycoQCError ("{} is not a valid pycoQC_parse object".format(parser))
+            raise pycoQCError("{} is not a valid pycoQC_parse object".format(parser))
         self.parser = parser
 
         # Check that plotter is a valid instance of pycoQC_plot
         if not isinstance(plotter, pycoQC_plot):
-            raise pycoQCError ("{} is not a valid pycoQC_plot object".format(plotter))
+            raise pycoQCError("{} is not a valid pycoQC_plot object".format(plotter))
         self.plotter = plotter
 
     def __repr__(self):
         return "[{}]\n".format(self.__class__.__name__)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~PUBLIC METHODS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-    def html_report( self,
-        outfile:str,
-        config_file:str="",
-        template_file:str="",
-        report_title:str="PycoQC report",
-        skip_coverage_plot:bool=False):
+    def html_report(self,
+                    outfile: str,
+                    config_file: str = "",
+                    template_file: str = "",
+                    report_title: str = "PycoQC report",
+                    skip_coverage_plot: bool = False):
         """"""
         self.logger.info("Generating HTML report")
 
@@ -72,32 +72,35 @@ class pycoQC_report ():
         # Loop over configuration file and run the pycoQC functions defined
         plots = list()
         titles = list()
-        for method_name, method_args in config_dict.items ():
+        for method_name, method_args in config_dict.items():
             if skip_coverage_plot and method_name == "alignment_coverage":
                 self.logger.info("\tSkipping method {}".format(method_name))
                 continue
             try:
                 self.logger.info("\tRunning method {}".format(method_name))
-                self.logger.debug ("\t{} ({})".format(method_name, method_args))
+                self.logger.debug("\t{} ({})".format(method_name, method_args))
 
                 # Store plot title for HTML title and remove from data passed to plotly
                 plot_title = method_args["plot_title"]
-                method_args["plot_title"]=""
+                method_args["plot_title"] = ""
 
                 # Get method and generate plot
                 method = getattr(self.plotter, method_name)
                 fig = method(**method_args)
-                plot = py.plot(
-                    fig,
-                    output_type='div',
-                    include_plotlyjs=False,
-                    image_width='',
-                    image_height='',
-                    show_link=False,
-                    auto_open=False)
+                if fig['data']:  # Do not display %GC graph if no data available
+                    # TODO: don't add alignment summary if empty
+                    # TODO: don't add barcode summary if empty
+                    plot = py.plot(
+                        fig,
+                        output_type='div',
+                        include_plotlyjs=False,
+                        image_width='',
+                        image_height='',
+                        show_link=False,
+                        auto_open=False)
 
-                plots.append(plot)
-                titles.append(plot_title)
+                    plots.append(plot)
+                    titles.append(plot_title)
 
             except AttributeError as E:
                 self.logger.info("\t\t{} is not a valid plotting method".format(method_name))
@@ -111,14 +114,15 @@ class pycoQC_report ():
         template = self._get_jinja_template(template_file)
 
         # Set a subtitle for the HTML report
-        report_subtitle="Generated on {} with {} {}".format( datetime.datetime.now().strftime("%d/%m/%y"), package_name, package_version)
+        report_subtitle = "Generated on {} with {} {}".format(datetime.datetime.now().strftime("%d/%m/%y"),
+                                                              package_name, package_version)
 
         # Define source files list
         src_files = ""
         for files_list, name in (
-            (self.parser.summary_files_list,"summary"),
-            (self.parser.barcode_files_list,"barcode"),
-            (self.parser.bam_file_list,"bam")):
+                (self.parser.summary_files_list, "summary"),
+                (self.parser.barcode_files_list, "barcode"),
+                (self.parser.bam_file_list, "bam")):
 
             if files_list:
                 src_files += "<h4>Source {} files</h4><ul>".format(name)
@@ -144,15 +148,15 @@ class pycoQC_report ():
             fp.write(rendering)
 
     def json_report(self,
-        outfile:str):
+                    outfile: str):
         """"""
         self.logger.info("Generating JSON report")
         self.logger.info("\tRunning summary_stats_dict method")
-        res_dict = self.plotter.summary_stats_dict ()
+        res_dict = self.plotter.summary_stats_dict()
 
         self.logger.info("\tWriting to JSON file")
         mkbasedir(outfile, exist_ok=True)
-        with open (outfile, "w") as fp:
+        with open(outfile, "w") as fp:
             json.dump(res_dict, fp, indent=2)
 
     #~~~~~~~~~~~~~~PRIVATE FUNCTION~~~~~~~~~~~~~~#
@@ -161,15 +165,15 @@ class pycoQC_report ():
         """"""
         # First, try to read provided configuration file if given
         if config_file:
-            self.logger.debug ("\tTry to read provided config file")
+            self.logger.debug("\tTry to read provided config file")
             try:
                 with open(config_file, 'r') as cf:
                     return json.load(cf)
             except (FileNotFoundError, IOError, json.JSONDecodeError):
-                self.logger.debug ("\t\tConfiguration file not found, non-readable or invalid")
+                self.logger.debug("\t\tConfiguration file not found, non-readable or invalid")
 
-        # Last use the default harcoded config_dict
-        self.logger.debug ("\tRead default configuration file")
+        # Last use the default hardcoded config_dict
+        self.logger.debug("\tRead default configuration file")
         config_file = resource_filename("pycoQC", "templates/pycoQC_config.json")
         with open(config_file, 'r') as cf:
             return json.load(cf)
@@ -183,12 +187,13 @@ class pycoQC_report ():
                 with open(template_file) as fp:
                     template = jinja2.Template(fp.read())
                     return template
-            except (FileNotFoundError, IOError, jinja2.exceptions.TemplateNotFound, jinja2.exceptions.TemplateSyntaxError):
-                self.logger.debug ("\t\tFile not found, non-readable or invalid")
+            except (FileNotFoundError, IOError, jinja2.exceptions.TemplateNotFound,
+                    jinja2.exceptions.TemplateSyntaxError):
+                self.logger.debug("\t\tFile not found, non-readable or invalid")
 
         # Last use the default harcoded config_dict
-        self.logger.debug ("\tRead default jinja template")
-        env = jinja2.Environment (
+        self.logger.debug("\tRead default jinja template")
+        env = jinja2.Environment(
             loader=jinja2.PackageLoader('pycoQC', 'templates'),
             autoescape=jinja2.select_autoescape(["html"]))
         template = env.get_template('spectre.html.j2')
