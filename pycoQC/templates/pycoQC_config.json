@@ -5,11 +5,11 @@
   "basecall_summary": {
     "plot_title": "Basecall summary"
   },
+  "basecall_summary_per_barcode": {
+    "plot_title": "Basecall summary per barcode"
+  },
   "alignment_summary": {
     "plot_title": "Alignment summary"
-  },
-  "barcode_summary": {
-    "plot_title": "Barcode summary"
   },
   "read_len_1D": {
     "plot_title": "Basecalled reads length",

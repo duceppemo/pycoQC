@@ -409,74 +409,6 @@ class pycoQC_plot():
 
         return fig
 
-    def barcode_summary(self,
-                        width: int = 600,
-                        height: int = 400,
-                        plot_title: str = "Barcode summary"):
-        """
-        Plot an interactive barcode summary table
-        * groupby
-            Value of field to group the data in the table
-        * width
-            With of the plotting area in pixel
-        * height
-            Height of the plotting area in pixel
-        * plot_title
-            Title to display on top of the plot
-        """
-        # Verify that barcode information are available
-        if not self.has_barcodes:
-            raise pycoQCError("No barcode information available")
-
-        fig = self.__barcode_count_plot(
-            width=width,
-            height=height,
-            plot_title=plot_title,
-            header=["Barcode", "Count"],
-            data_format=["", ","])
-
-        return fig
-
-    def __barcode_count_plot(self, width, height, plot_title, header, data_format):
-        """Private function generating summary table plots"""
-        self.logger.info("\t\tComputing plot")
-
-        # Prepare all data
-        lab1, dd1 = self.__barcode_counts_data(df_level="all")
-        lab2, dd2 = self.__barcode_counts_data(df_level="pass")
-        lab3, dd3 = self.__barcode_counts_data(df_level="fail")
-
-        # Plot initial data
-        data = [go.Table(
-            header={
-                "values": header,
-                "align": "center", "fill": {"color": "grey"},
-                "font": {"size": 14, "color": "white"},
-                "height": 40},
-            cells={
-                "values": [dd1['labels'][0], dd1['values'][0]],
-                "format": data_format,
-                "align": "center",
-                "fill": {"color": "whitesmoke"},
-                "font": {"size": 12}, "height": 30})]
-
-        # Create update buttons
-        updatemenus = [
-            dict(type="buttons", active=0, x=-0.06, y=0, xanchor='right', yanchor='bottom',
-                 buttons=[dict(label=lab1, method='update', args=[dd1]),
-                          dict(label=lab2, method='update', args=[dd2]),
-                          dict(label=lab3, method='update', args=[dd3])
-                          ])]
-
-        # tweak plot layout
-        layout = go.Layout(
-            width=width,
-            height=height,
-            updatemenus=updatemenus,
-            title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
-
-        return go.Figure(data=data, layout=layout)
-
     def __summary_plot(self, width, height, plot_title, header, data_format, data):
         """Private function generating summary table plots"""
         self.logger.info("\t\tComputing plot")
@@ -502,6 +434,124 @@ class pycoQC_plot():
             title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
 
         return go.Figure(data=data, layout=layout)
+
+    def basecall_summary_per_barcode(self,
+                                     width: int = None,
+                                     height: int = 500,
+                                     plot_title: str = "Basecall summary per barcode"):
+        """
+        Plot an interactive basecall summary table
+        * groupby
+            Value of field to group the data in the table
+        * width
+            With of the plotting area in pixel
+        * height
+            Height of the plotting area in pixel
+        * plot_title
+            Title to display on top of the plot
+        """
+
+        # Verify that barcode information are available
+        if not self.has_barcodes:
+            raise pycoQCError("No barcode information available")
+
+        self.logger.info("\t\tComputing plot")
+
+        fig_header_list = ["Barcode", "Reads", "Bases", "N50", "Median Length", "Median Q-score"]
+        data_format_list = ["", ",", ",", ",", ",", ".1f"]
+        if '%GC' in self.all_df:
+            fig_header_list.append("Median %GC")
+            data_format_list.append(".1f")
+
+        fig = self.__summary_barcode_plot(
+            width=width,
+            height=height,
+            plot_title=plot_title,
+            header=fig_header_list,
+            data_format=data_format_list)
+
+        return fig
+
+    def __summary_barcode_plot(self, width, height, plot_title, header, data_format):
+        """Private function generating summary table plot per barcode"""
+        self.logger.info("\t\tComputing plot")
+
+        # Prepare all data
+        lab1, dd1 = self.__summary_barcode_data("all")
+        lab2, dd2 = self.__summary_barcode_data("pass")
+        lab3, dd3 = self.__summary_barcode_data("fail")
+
+        y = dd1['y'][0]
+        data = [*zip(*y)]
+
+        # Plot data
+        data = [go.Table(
+            header={
+                "values": header,
+                "align": "center", "fill": {"color": "grey"},
+                "font": {"size": 14, "color": "white"},
+                "height": 40},
+            cells={
+                "values": data,
+                "format": data_format,
+                "align": "center",
+                "fill": {"color": "whitesmoke"},
+                "font": {"size": 12}, "height": 30})]
+
+        # Create dropdown menu button
+        updatemenus = [
+            dict(type="dropdown", active=0, x=-0.2, y=0.8, xanchor='left', yanchor='bottom',
+                 buttons=[dict(label=lab1, method='update', args=[dict(values=dd1, visible=[True, False, False])]),
+                          dict(label=lab2, method='update', args=[dict(values=dd2, visible=[False, True, False])]),
+                          dict(label=lab3, method='update', args=[dict(values=dd3, visible=[False, False, True])])
+                          ]
+                 )]
+
+        # tweak plot layout
+        layout = go.Layout(
+            width=width,
+            height=height,
+            updatemenus=updatemenus,
+            title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
+
+        return go.Figure(data=data, layout=layout)
+
+    def __summary_barcode_data(self, df_level):
+
+        # Get data and scaling factor
+        if df_level == "pass":
+            df = self.pass_sample_df
+        elif df_level == "fail":
+            df = self.fail_sample_df
+        else:
+            df = self.all_sample_df
+
+        # Extract data
+        data = []
+        i = 0
+        bc_list = sorted(df['barcode'].unique())
+
+        for i, bc in enumerate(bc_list):
+            # Extract data for barcode
+            df1 = df[df['barcode'] == bc]
+            data.append([
+                bc,
+                self._basecalled_reads(df1),
+                self._basecalled_bases(df1),
+                self._basecall_N50(df1),
+                self._basecall_median_read_len(df1),
+                self._basecall_median_read_qscore(df1)])
+            if '%GC' in self.all_df:
+                data[i].append(self._basecall_median_read_gc(df1))
+                i += 1
+
+        data_dict = dict(
+            x=[bc_list],
+            y=[data]
+        )
+
+        label = "{} Reads".format(df_level.capitalize())
+        return label, data_dict
 
     #~~~~~~~1D DISTRIBUTION METHODS AND HELPER~~~~~~~#
     def read_len_1D(self,
@@ -1595,8 +1645,29 @@ class pycoQC_plot():
         lab2, dd2 = self.__barcode_counts_data(df_level="pass")
         lab3, dd3 = self.__barcode_counts_data(df_level="fail")
 
-        # Plot initial data
-        data = [go.Pie(labels=dd1["labels"][0], values=dd1["values"][0], sort=False, marker=dict(colors=colors))]
+        data = [
+            go.Table(
+                header={
+                    "values": ["Barcode", "Count"],
+                    "align": "center", "fill": {"color": "grey"},
+                    "font": {"size": 14, "color": "white"},
+                    "height": 40},
+                cells={
+                    "values": [dd1['labels'][0], dd1['values'][0]],
+                    "format": ["", ","],
+                    "align": "center",
+                    "fill": {"color": "whitesmoke"},
+                    "font": {"size": 12}, "height": 30},
+                columnwidth=[3, 2],
+                domain={"x": [0.5, 1.0], "y": [0, 1.0]}
+            ),
+            go.Pie(
+                labels=dd1["labels"][0],
+                values=dd1["values"][0],
+                sort=False,
+                domain={"x": [0, 0.4], "y": [0, 1.0]}
+            )
+        ]
 
         # Create update buttons
         updatemenus = [
@@ -1614,7 +1685,7 @@ class pycoQC_plot():
             height=height,
             title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
 
-        return go.Figure(data=data, layout=layout)
+        return go.Figure(data=data, layout=layout).set_subplots(rows=1, cols=2, column_widths=[0.4, 0.6])
 
     def __barcode_counts_data(self, df_level):
         """Private function preparing data for barcode_counts"""
@@ -1640,7 +1711,7 @@ class pycoQC_plot():
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict
 
-    #~~~~~~~BARCODE_COUNT METHODS AND HELPER~~~~~~~# ############################################################################# ADD TABLE AS IN ALIGNMENTS
+    #~~~~~~~BARCODE_COUNT METHODS AND HELPER~~~~~~~#
     def channels_activity(
             self,
             colorscale: list = (
@@ -1804,7 +1875,7 @@ class pycoQC_plot():
 
         # plot Table
         data = go.Table(
-            columnwidth=[3,2,2],
+            columnwidth=[3, 2, 2],
             header={"values": list(df.columns), "align": "center", "fill_color": "grey", "font_size": 14,
                     "font_color": "white", "height": 40},
             cells={"values": df.values.T, "align": "center", "fill_color": "whitesmoke", "font_size": 12, "height": 30})
@@ -1824,7 +1895,7 @@ class pycoQC_plot():
         fig.update_layout(
             width=width,
             height=height,
-            title={"text": plot_title, "xref": "paper","x": 0.5, "xanchor": "center"})
+            title={"text": plot_title, "xref": "paper", "x": 0.5, "xanchor": "center"})
 
         return fig
 
@@ -2035,10 +2106,10 @@ class pycoQC_plot():
         return offset
 
     # ~~~~~~~BOXPLOT METHOD AND HELPER~~~~~~~#
-    def length_boxplot_per_sample(self, width: int = None, height: int = 500,
-                                  plot_title: str = "Read length distribution per sample"):
+    def length_boxplot_per_barcode(self, width: int = None, height: int = 500,
+                                   plot_title: str = "Read length distribution per sample"):
 
-        fig = self.__per_sample_plot(
+        fig = self.__per_barcode_boxplot(
             field_name="read_len",
             plot_title=plot_title,
             y_lab="Read length",
@@ -2052,7 +2123,7 @@ class pycoQC_plot():
     def gc_boxplot_per_sample(self, width: int = None, height: int = 500,
                               plot_title: str = "%GC distribution per sample"):
 
-        fig = self.__per_sample_plot(
+        fig = self.__per_barcode_boxplot(
             field_name="%GC",
             plot_title=plot_title,
             y_lab="%GC",
@@ -2063,7 +2134,7 @@ class pycoQC_plot():
 
         return fig
 
-    def __per_sample_plot(self, field_name, plot_title, y_lab, color, width, height, y_scale):
+    def __per_barcode_boxplot(self, field_name, plot_title, y_lab, color, width, height, y_scale):
         """Private function generating boxplots plots for all per sample functions"""
 
         # Verify that barcode information are available
@@ -2073,9 +2144,9 @@ class pycoQC_plot():
         self.logger.info("\t\tComputing plot")
 
         # Prepare all data
-        lab1, dd1 = self.__per_sample_data("all", field_name)
-        lab2, dd2 = self.__per_sample_data("pass", field_name)
-        lab3, dd3 = self.__per_sample_data("fail", field_name)
+        lab1, dd1 = self.__per_barcode_data("all", field_name)
+        lab2, dd2 = self.__per_barcode_data("pass", field_name)
+        lab3, dd3 = self.__per_barcode_data("fail", field_name)
 
         # Plot initial data
         # data = list()
@@ -2087,10 +2158,11 @@ class pycoQC_plot():
 
         # Create update buttons
         updatemenus = [
-            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
-                dict(label=lab1, method='restyle', args=[dd1]),
-                dict(label=lab2, method='restyle', args=[dd2]),
-                dict(label=lab3, method='restyle', args=[dd3])
+            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
+                 buttons=[
+                     dict(label=lab1, method='update', args=[dd1]),
+                     dict(label=lab2, method='update', args=[dd2]),
+                     dict(label=lab3, method='update', args=[dd3])
                  ])]
 
         # tweak plot layout
@@ -2107,8 +2179,8 @@ class pycoQC_plot():
 
         return go.Figure(data=data, layout=layout)
 
-    def __per_sample_data(self, df_level, field_name="read_len"):
-        """Private function preparing data for length_per_sample"""
+    def __per_barcode_data(self, df_level, field_name="read_len"):
+        """Private function preparing data for length_per_barcode"""
 
         self.logger.debug("\t\tPreparing data for {} reads and {}".format(df_level, field_name))
 
