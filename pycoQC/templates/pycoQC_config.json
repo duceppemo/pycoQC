@@ -150,10 +150,10 @@
     "color": "rgba(102,168,255,0.75)",
     "smooth_sigma": 1
   },
-  "length_boxplot_per_sample": {
+  "length_boxplot_per_barcode": {
     "plot_title": "Read length distribution per sample"
   },
-  "gc_boxplot_per_sample": {
+  "gc_boxplot_per_barcode": {
     "plot_title": "%GC distribution per sample"
   }
 }

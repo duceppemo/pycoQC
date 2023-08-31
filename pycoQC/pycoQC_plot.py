@@ -2113,28 +2113,30 @@ class pycoQC_plot():
             field_name="read_len",
             plot_title=plot_title,
             y_lab="Read length",
-            color='blue',
+            line_color='rgb(102,168,255)',
+            fill_color='rgb(204, 226, 255)',
             width=width,
             height=height,
             y_scale='log')
 
         return fig
 
-    def gc_boxplot_per_sample(self, width: int = None, height: int = 500,
-                              plot_title: str = "%GC distribution per sample"):
+    def gc_boxplot_per_barcode(self, width: int = None, height: int = 500,
+                               plot_title: str = "%GC distribution per sample"):
 
         fig = self.__per_barcode_boxplot(
             field_name="%GC",
             plot_title=plot_title,
             y_lab="%GC",
-            color='blue',
+            line_color='rgb(51, 204, 51)',
+            fill_color='rgb(179, 255, 179)',
             width=width,
             height=height,
             y_scale='linear')
 
         return fig
 
-    def __per_barcode_boxplot(self, field_name, plot_title, y_lab, color, width, height, y_scale):
+    def __per_barcode_boxplot(self, field_name, plot_title, y_lab, line_color, fill_color, width, height, y_scale):
         """Private function generating boxplots plots for all per sample functions"""
 
         # Verify that barcode information are available
@@ -2153,16 +2155,16 @@ class pycoQC_plot():
         # for bc in dd1:
         #     data.append(go.Box(y=bc[1][field_name], name=bc[0]))
 
-        data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False,)]
+        data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False, fillcolor=fill_color, line=dict(color=line_color))]
         # data = [go.Box(dd1, x='barcode', y='read_len')]
 
         # Create update buttons
         updatemenus = [
             dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
                  buttons=[
-                     dict(label=lab1, method='update', args=[dd1]),
-                     dict(label=lab2, method='update', args=[dd2]),
-                     dict(label=lab3, method='update', args=[dd3])
+                     dict(label=lab1, method='restyle', args=[dd1]),
+                     dict(label=lab2, method='restyle', args=[dd2]),
+                     dict(label=lab3, method='restyle', args=[dd3])
                  ])]
 
         # tweak plot layout
@@ -2205,7 +2207,6 @@ class pycoQC_plot():
 
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict
-        # return label, df1
 
     #~~~~~~~PRIVATE METHODS~~~~~~~#
     @staticmethod
