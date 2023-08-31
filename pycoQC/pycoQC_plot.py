@@ -134,6 +134,10 @@ class pycoQC_plot():
         return "barcode" in self.all_df
 
     @property
+    def has_gc_percent(self):
+        return "%GC" in self.all_df
+
+    @property
     def has_alignment(self):
         return "ref_id" in self.all_df
 
@@ -881,23 +885,25 @@ class pycoQC_plot():
         * plot_title
             Title to display on top of the plot
         """
-        if '%GC' in self.all_df:
-            fig = self.__2D_density_plot(
-                x_field_name="read_len",
-                y_field_name="%GC",
-                x_lab="Basecalled length",
-                y_lab="%GC",
-                x_scale="log",
-                y_scale="linear",
-                x_nbins=x_nbins,
-                y_nbins=y_nbins,
-                colorscale=colorscale,
-                smooth_sigma=smooth_sigma,
-                width=width,
-                height=height,
-                plot_title=plot_title)
-        else:
-            fig = go.Figure()
+        # Verify that alignment information are available
+        if not self.has_gc_percent:
+            raise pycoQCError("No %GC information available")
+
+        fig = self.__2D_density_plot(
+            x_field_name="read_len",
+            y_field_name="%GC",
+            x_lab="Basecalled length",
+            y_lab="%GC",
+            x_scale="log",
+            y_scale="linear",
+            x_nbins=x_nbins,
+            y_nbins=y_nbins,
+            colorscale=colorscale,
+            smooth_sigma=smooth_sigma,
+            width=width,
+            height=height,
+            plot_title=plot_title)
+
         return fig
 
     def read_len_align_len_2D(self,
@@ -1407,21 +1413,23 @@ class pycoQC_plot():
         * plot_title
             Title to display on top of the plot
         """
-        if '%GC' in self.all_df:
-            fig = self.__over_time_plot(
-                field_name="%GC",
-                plot_title=plot_title,
-                y_lab="Mean read %GC",
-                y_scale="linear",
-                median_color=median_color,
-                quartile_color=quartile_color,
-                extreme_color=extreme_color,
-                smooth_sigma=smooth_sigma,
-                time_bins=time_bins,
-                width=width,
-                height=height)
-        else:
-            fig = go.Figure()
+        # Check data contains %GC information
+        if not self.has_gc_percent:
+            raise pycoQCError("No %GC information available")
+
+        fig = self.__over_time_plot(
+            field_name="%GC",
+            plot_title=plot_title,
+            y_lab="Mean read %GC",
+            y_scale="linear",
+            median_color=median_color,
+            quartile_color=quartile_color,
+            extreme_color=extreme_color,
+            smooth_sigma=smooth_sigma,
+            time_bins=time_bins,
+            width=width,
+            height=height)
+
         return fig
 
     def align_len_over_time(
@@ -2123,6 +2131,10 @@ class pycoQC_plot():
 
     def gc_boxplot_per_barcode(self, width: int = None, height: int = 500,
                                plot_title: str = "%GC distribution per sample"):
+
+        # Check data contains %GC information
+        if not self.has_gc_percent:
+            raise pycoQCError("No %GC information available")
 
         fig = self.__per_barcode_boxplot(
             field_name="%GC",
