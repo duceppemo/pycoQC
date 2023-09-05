@@ -485,10 +485,7 @@ class pycoQC_plot():
         lab2, dd2 = self.__summary_barcode_data("pass")
         lab3, dd3 = self.__summary_barcode_data("fail")
 
-        y = dd1['y'][0]
-        data = [*zip(*y)]
-
-        # Plot data
+        # Plot initial data
         data = [go.Table(
             header={
                 "values": header,
@@ -496,18 +493,35 @@ class pycoQC_plot():
                 "font": {"size": 14, "color": "white"},
                 "height": 40},
             cells={
-                "values": data,
+                "values": [*zip(*dd1['y'][0])],
                 "format": data_format,
                 "align": "center",
                 "fill": {"color": "whitesmoke"},
                 "font": {"size": 12}, "height": 30})]
 
-        # Create dropdown menu button
         updatemenus = [
-            dict(type="dropdown", active=0, x=-0.2, y=0.8, xanchor='left', yanchor='bottom',
-                 buttons=[dict(label=lab1, method='update', args=[dict(values=dd1, visible=[True, False, False])]),
-                          dict(label=lab2, method='update', args=[dict(values=dd2, visible=[False, True, False])]),
-                          dict(label=lab3, method='update', args=[dict(values=dd3, visible=[False, False, True])])
+            dict(type="buttons", active=0, x=-0.2, y=0.5, xanchor='left', yanchor='bottom',
+                 buttons=[dict(label=lab1, method='restyle',
+                               args=[dict(cells={
+                                   "values": [*zip(*dd1['y'][0])],
+                                   "format": data_format,
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})]),
+                          dict(label=lab2, method='restyle',
+                               args=[dict(cells={
+                                   "values": [*zip(*dd2['y'][0])],
+                                   "format": data_format,
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})]),
+                          dict(label=lab3, method='restyle',
+                               args=[dict(cells={
+                                   "values": [*zip(*dd3['y'][0])],
+                                   "format": data_format,
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})])
                           ]
                  )]
 
@@ -1173,7 +1187,7 @@ class pycoQC_plot():
         * width
             With of the plotting area in pixel
         * height
-            height of the plotting area in pixel
+            Height of the plotting area in pixel
         * plot_title
             Title to display on top of the plot
         """
@@ -1206,7 +1220,7 @@ class pycoQC_plot():
 
         # Create update buttons
         updatemenus = [
-            dict(type="buttons", active=0, x=-0.06, y=0, xanchor='right', yanchor='bottom', buttons=[
+            dict(type="buttons", active=0, x=-0.08  , y=0, xanchor='right', yanchor='bottom', buttons=[
                 dict(label=lab1, method='update', args=[dd1, ld1]),
                 dict(label=lab2, method='update', args=[dd2, ld2]),
                 dict(label=lab3, method='update', args=[dd3, ld3]),
@@ -1677,12 +1691,35 @@ class pycoQC_plot():
             )
         ]
 
-        # Create update buttons
         updatemenus = [
-            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom', buttons=[
-                dict(label=lab1, method='update', args=[dd1]),
-                dict(label=lab2, method='update', args=[dd2]),
-                dict(label=lab3, method='update', args=[dd3])])]
+            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
+                 buttons=[dict(label=lab1, method='restyle',
+                               args=[dict(cells={
+                                   "values": [dd1['labels'][0], dd1['values'][0]],
+                                   "format": ["", ","],
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})],
+                               args2=[dd1]),
+                          dict(label=lab2, method='restyle',
+                               args=[dict(cells={
+                                   "values": [dd2['labels'][0], dd2['values'][0]],
+                                   "format": ["", ","],
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})],
+                               args2=[dd2]),
+                          dict(label=lab3, method='restyle',
+                               args=[dict(cells={
+                                   "values": [dd3['labels'][0], dd3['values'][0]],
+                                   "format": ["", ","],
+                                   "align": "center",
+                                   "fill": {"color": "whitesmoke"},
+                                   "font": {"size": 12}, "height": 30})],
+                               args2=[dd3])
+                          ]
+                 )
+        ]
 
         # tweak plot layout
         layout = go.Layout(
@@ -2163,20 +2200,59 @@ class pycoQC_plot():
         lab3, dd3 = self.__per_barcode_data("fail", field_name)
 
         # Plot initial data
+        # Get the barcode list
+        # bc_list = sorted(list(dict.fromkeys([bc for bc in dd1['x']])))  # Remove duplicates
         # data = list()
-        # for bc in dd1:
-        #     data.append(go.Box(y=bc[1][field_name], name=bc[0]))
+        # bc_dict = dict()
+        # for bc in bc_list:
+        #     bc_dict[bc] = list()
+        #     for i, x in enumerate(dd1['x']):
+        #         y = dd1['y'][i]
+        #         if x == bc:
+        #             bc_dict[bc].append(y)
+        # data = list()
+        # for bc, y_data_list in bc_dict.items():
+        #     data.append(go.Box(y=y_data_list, name=bc, showlegend=False, fillcolor=fill_color, line=dict(color=line_color)))
 
-        data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False, fillcolor=fill_color, line=dict(color=line_color))]
-        # data = [go.Box(dd1, x='barcode', y='read_len')]
+        # my_data = [*zip(dd1['x'], dd1['y'])]
+
+        # data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False, fillcolor=fill_color,
+        #                line=dict(color=line_color), visible=True),
+        #         go.Box(x=dd2["x"], y=dd2["y"], showlegend=False, fillcolor=fill_color,
+        #                line=dict(color=line_color), visible=False),
+        #         go.Box(x=dd3["x"], y=dd3["y"], showlegend=False, fillcolor=fill_color,
+        #                line=dict(color=line_color), visible=False)]
+        data = [go.Box(x=dd1["x"], y=dd1["y"], showlegend=False, fillcolor=fill_color,
+                       line=dict(color=line_color))]
 
         # Create update buttons
         updatemenus = [
             dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
                  buttons=[
-                     dict(label=lab1, method='restyle', args=[dd1]),
-                     dict(label=lab2, method='restyle', args=[dd2]),
-                     dict(label=lab3, method='restyle', args=[dd3])
+                     # dict(label=lab1, method='update', args=[dict(visible=[True, False, False])]),
+                     # dict(label=lab2, method='update', args=[dict(visible=[False, True, False])]),
+                     # dict(label=lab3, method='update', args=[dict(visible=[False, False, True])]),
+
+                     # dict(label=lab1, method='update', args=[dd1]),
+                     # dict(label=lab1, method='update', args=[dd2]),
+                     # dict(label=lab3, method='update', args=[dd3])
+
+                     dict(label=lab1, method='restyle', args=[dict(x=[dd1["x"]], y=[dd1["y"]])]),
+                     dict(label=lab2, method='restyle', args=[dict(x=[dd2["x"]], y=[dd2["y"]])]),
+                     dict(label=lab3, method='restyle', args=[dict(x=[dd3["x"]], y=[dd3["y"]])])
+
+                     # dict(label=lab1, method='restyle',
+                     #      args=[dict(x=dd1["x"], y=dd1["y"], showlegend=False, fillcolor=fill_color,
+                     #                 line=dict(color=line_color))]),
+                     # dict(label=lab2, method='restyle',
+                     #      args=[dict(x=dd2["x"], y=dd2["y"], showlegend=False, fillcolor=fill_color,
+                     #                 line=dict(color=line_color))]),
+                     # dict(label=lab3, method='restyle',
+                     #      args=[dict(x=dd3["x"], y=dd3["y"], showlegend=False, fillcolor=fill_color,
+                     #                 line=dict(color=line_color))]),
+
+                     # dict(args=["type", "box"], label="Box", method="restyle"),
+                     # dict(args=["type", "violin"], label="Violin", method="restyle")
                  ])]
 
         # tweak plot layout
