@@ -15,6 +15,8 @@ build:
     - pycoQC=pycoQC.__main__:main_pycoQC
     - Fast5_to_seq_summary=pycoQC.__main__:main_Fast5_to_seq_summary
     - Fastq_to_seq_summary=pycoQC.__main__:main_Fastq_to_seq_summary
+    - Pod5_to_seq_summary=pycoQC.__main__:main_Pod5_to_seq_summary
+    - Bam_to_seq_summary=pycoQC.__main__:main_Bam_to_seq_summary
     - Barcode_split=pycoQC.__main__:main_Barcode_split
   noarch: "python"
 
@@ -24,26 +26,30 @@ requirements:
     - pip>=19.2.1
     - ripgrep>=11.0.1
   run:
-    - numpy>=1.19
-    - scipy>=1.5
-    - pandas>=1.1
-    - plotly==4.1.0
-    - jinja2>=2.10
-    - h5py>=3.1
-    - tqdm>=4.54
-    - pysam>=0.16
-    - Cython>=3.0.0
+    - numpy>=1.24
+    - scipy>=1.10
+    - pandas>=2.0
+    - plotly==5.16.1
+    - jinja2>=3.1
+    - h5py>=3.10
+    - tqdm>=4.66
+    - pysam>=0.22
+    - Cython>=3.0
 
 test:
   imports:
     - pycoQC.pycoQC
     - pycoQC.Fast5_to_seq_summary
     - pycoQC.Fastq_to_seq_summary
+    - pycoQC.Pod5_to_seq_summary
+    - pycoQC.Bam_to_seq_summary
     - pycoQC.Barcode_split
   commands:
     - pycoQC --help
     - Fast5_to_seq_summary --help
     - Fastq_to_seq_summary --help
+    - Pod5_to_seq_summary --help
+    - Bam_to_seq_summary --help
     - Barcode_split --help
 
 about:
@@ -54,6 +60,6 @@ about:
   summary: PycoQC computes metrics and generates interactive QC plots for Oxford Nanopore technologies sequencing data
 
 extra:
-  author: Adrien Leger & Tommaso Leonardi
+  author: Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe
   author_email: aleg@ebi.ac.uk
   author_url: https://adrienleger.com

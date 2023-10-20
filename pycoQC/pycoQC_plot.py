@@ -547,6 +547,7 @@ class pycoQC_plot():
         # Extract data
         data = []
         i = 0
+        # bc_list = sorted(df['barcode'].astype(str).unique())
         bc_list = sorted(df['barcode'].unique())
 
         for i, bc in enumerate(bc_list):
@@ -567,6 +568,8 @@ class pycoQC_plot():
             x=[bc_list],
             y=[data]
         )
+        # except TypeError:
+        #     data_dict = dict()
 
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict
@@ -781,40 +784,44 @@ class pycoQC_plot():
         data = df[field_name].dropna().values
 
         # Count each categories in log or linear space
-        min_val = np.nanmin(data)
-        maxval = np.nanmax(data)
-        if x_scale == "log":
-            count_y, bins = np.histogram(a=data, bins=np.logspace(np.log10(min_val), np.log10(maxval)+0.1, nbins))
-        elif x_scale == "linear":
-            count_y, bins = np.histogram(a=data, bins=np.linspace(min_val, maxval, nbins))
-        else:  # That would generate an error
-            count_y, bins = '', ''
+        try:
+            min_val = np.nanmin(data)
+            maxval = np.nanmax(data)
+            if x_scale == "log":
+                count_y, bins = np.histogram(a=data, bins=np.logspace(np.log10(min_val), np.log10(maxval)+0.1, nbins))
+            elif x_scale == "linear":
+                count_y, bins = np.histogram(a=data, bins=np.linspace(min_val, maxval, nbins))
+            else:  # That would generate an error
+                count_y, bins = '', ''
 
-        # Remove last bin from labels
-        count_x = bins[1:]
+            # Remove last bin from labels
+            count_x = bins[1:]
 
-        # Smooth results with a gaussian filter
-        if smooth_sigma:
-            count_y = gaussian_filter1d(count_y, sigma=smooth_sigma)
+            # Smooth results with a gaussian filter
+            if smooth_sigma:
+                count_y = gaussian_filter1d(count_y, sigma=smooth_sigma)
 
-        # Get percentiles percentiles
-        stat = np.percentile(data, [10, 25, 50, 75, 90])
-        y_max = count_y.max()
+            # Get percentiles percentiles
+            stat = np.percentile(data, [10, 25, 50, 75, 90])
+            y_max = count_y.max()
 
-        data_dict = dict(
-            x=[count_x, [stat[0], stat[0]], [stat[1], stat[1]], [stat[2], stat[2]],
-               [stat[3], stat[3]], [stat[4], stat[4]]],
-            y=[count_y, [0, y_max], [0, y_max], [0, y_max], [0, y_max], [0, y_max]],
-            name=["Density", "10%", "25%", "Median", "75%", "90%"],
-            text=["",
-                  ["", "10%<br>{:,.2f}".format(stat[0])],
-                  ["", "25%<br>{:,.2f}".format(stat[1])],
-                  ["", "Median<br>{:,.2f}".format(stat[2])],
-                  ["", "75%<br>{:,.2f}".format(stat[3])],
-                  ["", "90%<br>{:,.2f}".format(stat[4])]])
+            data_dict = dict(
+                x=[count_x, [stat[0], stat[0]], [stat[1], stat[1]], [stat[2], stat[2]],
+                   [stat[3], stat[3]], [stat[4], stat[4]]],
+                y=[count_y, [0, y_max], [0, y_max], [0, y_max], [0, y_max], [0, y_max]],
+                name=["Density", "10%", "25%", "Median", "75%", "90%"],
+                text=["",
+                      ["", "10%<br>{:,.2f}".format(stat[0])],
+                      ["", "25%<br>{:,.2f}".format(stat[1])],
+                      ["", "Median<br>{:,.2f}".format(stat[2])],
+                      ["", "75%<br>{:,.2f}".format(stat[3])],
+                      ["", "90%<br>{:,.2f}".format(stat[4])]])
 
-        # Make layout dict = Off set for labels on top
-        layout_dict = {"yaxis.range": [0, y_max+y_max/6]}
+            # Make layout dict = Off set for labels on top
+            layout_dict = {"yaxis.range": [0, y_max+y_max/6]}
+        except ValueError:
+            data_dict = dict()
+            layout_dict = {"yaxis.range": [0, 1000]}
 
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict, layout_dict
@@ -1261,51 +1268,55 @@ class pycoQC_plot():
         else:
             sf = self.all_scaling_factor
 
-        # Bin data in categories
-        t = (df["start_time"] / 3600).values
-        x = np.linspace(t.min(), t.max(), num=time_bins)
-        t = np.digitize(t, bins=x, right=True)
+        try:
+            # Bin data in categories
+            t = (df["start_time"] / 3600).values
+            x = np.linspace(t.min(), t.max(), num=time_bins)
+            t = np.digitize(t, bins=x, right=True)
 
-        # Count reads or bases per categories
-        if count_level == "reads":
-            y = np.bincount(t)
-        elif count_level == "bases":
-            y = np.bincount(t, weights=df["read_len"].values)
-        else:
-            y = 0  # Should not get here
+            # Count reads or bases per categories
+            if count_level == "reads":
+                y = np.bincount(t)
+            elif count_level == "bases":
+                y = np.bincount(t, weights=df["read_len"].values)
+            else:
+                y = 0  # Should not get here
 
-        # Scale counts in case of down-sampling
-        y = y * sf
+            # Scale counts in case of down-sampling
+            y = y * sf
 
-        # Transform to cumulative distribution
-        y_cum = np.cumsum(y)
-        y_cum_max = y_cum[-1]
+            # Transform to cumulative distribution
+            y_cum = np.cumsum(y)
+            y_cum_max = y_cum[-1]
 
-        # Smooth and rescale interval trace
-        y = gaussian_filter1d(y, sigma=1)
-        y = y * y_cum_max / y.max()
+            # Smooth and rescale interval trace
+            y = gaussian_filter1d(y, sigma=1)
+            y = y * y_cum_max / y.max()
 
-        # Find percentages of data generated
-        lab_text = []
-        lab_name = []
-        lab_x = []
-        for lab in (50, 75, 90, 99, 100):
-            val = y_cum_max * lab / 100
-            idx = (np.abs(y_cum-val)).argmin()
-            lab_text.append(["", '{}%<br>{}h<br>{:,} {}'.format(
-                lab, round(x[idx], 2), int(y_cum[idx]), count_level)])
-            lab_x.append([x[idx], x[idx]])
-            lab_name.append("{}%".format(lab))
+            # Find percentages of data generated
+            lab_text = []
+            lab_name = []
+            lab_x = []
+            for lab in (50, 75, 90, 99, 100):
+                val = y_cum_max * lab / 100
+                idx = (np.abs(y_cum-val)).argmin()
+                lab_text.append(["", '{}%<br>{}h<br>{:,} {}'.format(
+                    lab, round(x[idx], 2), int(y_cum[idx]), count_level)])
+                lab_x.append([x[idx], x[idx]])
+                lab_name.append("{}%".format(lab))
 
-        # make data dict
-        data_dict = dict(
-            x=[x, x]+lab_x,
-            y=[y_cum, y, [0, y_cum_max], [0, y_cum_max], [0, y_cum_max], [0, y_cum_max], [0, y_cum_max]],
-            name=["Cumulative", "Interval"]+lab_name,
-            text=["", ""] + lab_text)
+            # make data dict
+            data_dict = dict(
+                x=[x, x]+lab_x,
+                y=[y_cum, y, [0, y_cum_max], [0, y_cum_max], [0, y_cum_max], [0, y_cum_max], [0, y_cum_max]],
+                name=["Cumulative", "Interval"]+lab_name,
+                text=["", ""] + lab_text)
 
-        # Make layout dict = offset for labels on top
-        layout_dict = {"yaxis.range": [0, y_cum_max+y_cum_max / 6]}
+            # Make layout dict = offset for labels on top
+            layout_dict = {"yaxis.range": [0, y_cum_max+y_cum_max / 6]}
+        except ValueError:
+            data_dict = dict()
+            layout_dict = {"yaxis.range": [0, 1000]}
 
         label = "{} {}".format(df_level.capitalize(), count_level.capitalize())
         return label, data_dict, layout_dict
@@ -1603,38 +1614,41 @@ class pycoQC_plot():
 
         data = df[field_name].dropna().values
 
-        # Bin data in categories
-        t = (df["start_time"] / 3600).values
-        x = np.linspace(t.min(), t.max(), num=time_bins)
-        t = np.digitize(t, bins=x, right=True)
+        try:
+            # Bin data in categories
+            t = (df["start_time"] / 3600).values
+            x = np.linspace(t.min(), t.max(), num=time_bins)
+            t = np.digitize(t, bins=x, right=True)
 
-        # List quality value per categories
-        bin_dict = defaultdict(list)
-        for bin_idx, val in zip(t, data):
-            my_bin = x[bin_idx]
-            bin_dict[my_bin].append(val)
+            # List quality value per categories
+            bin_dict = defaultdict(list)
+            for bin_idx, val in zip(t, data):
+                my_bin = x[bin_idx]
+                bin_dict[my_bin].append(val)
 
-        # Aggregate values per category
-        val_name = ["Min", "Max", "25%", "75%", "Median"]
-        stat_dict = defaultdict(list)
-        for my_bin in x:
-            if my_bin in bin_dict:
-                p = np.percentile(bin_dict[my_bin], [0, 100, 25, 75, 50])
-            else:
-                p = [np.nan, np.nan, np.nan, np.nan, np.nan]
-            for val, stat in zip(val_name, p):
-                stat_dict[val].append(stat)
+            # Aggregate values per category
+            val_name = ["Min", "Max", "25%", "75%", "Median"]
+            stat_dict = defaultdict(list)
+            for my_bin in x:
+                if my_bin in bin_dict:
+                    p = np.percentile(bin_dict[my_bin], [0, 100, 25, 75, 50])
+                else:
+                    p = [np.nan, np.nan, np.nan, np.nan, np.nan]
+                for val, stat in zip(val_name, p):
+                    stat_dict[val].append(stat)
 
-        # Values smoothing
-        if smooth_sigma:
-            for val in val_name:
-                stat_dict[val] = gaussian_filter1d(stat_dict[val], sigma=smooth_sigma)
+            # Values smoothing
+            if smooth_sigma:
+                for val in val_name:
+                    stat_dict[val] = gaussian_filter1d(stat_dict[val], sigma=smooth_sigma)
 
-        # make data dict
-        data_dict = dict(
-            x=[x, x, x, x, x],
-            y=[stat_dict["Min"], stat_dict["Max"], stat_dict["25%"], stat_dict["75%"], stat_dict["Median"]],
-            name=val_name)
+            # make data dict
+            data_dict = dict(
+                x=[x, x, x, x, x],
+                y=[stat_dict["Min"], stat_dict["Max"], stat_dict["25%"], stat_dict["75%"], stat_dict["Median"]],
+                name=val_name)
+        except ValueError:
+            data_dict = dict()
 
         label = "{} Reads".format(df_level.capitalize())
         return label, data_dict
@@ -1692,7 +1706,7 @@ class pycoQC_plot():
         ]
 
         updatemenus = [
-            dict(type="buttons", active=0, x=-0.2, y=0, xanchor='left', yanchor='bottom',
+            dict(type="buttons", active=0, x=-0.075, y=0, xanchor='left', yanchor='bottom',
                  buttons=[dict(label=lab1, method='restyle',
                                args=[dict(cells={
                                    "values": [dd1['labels'][0], dd1['values'][0]],
@@ -1857,39 +1871,42 @@ class pycoQC_plot():
         else:
             sf = self.all_scaling_factor
 
-        # Bin data in categories
-        t = (df["start_time"] / 3600).values
-        bins = np.linspace(t.min(), t.max(), num=time_bins)
-        t = np.digitize(t, bins=bins, right=True)
+        try:
+            # Bin data in categories
+            t = (df["start_time"] / 3600).values
+            bins = np.linspace(t.min(), t.max(), num=time_bins)
+            t = np.digitize(t, bins=bins, right=True)
 
-        # Count values per categories
-        z = np.ones((len(bins), n_channels), dtype=np.int32)
-        if count_level == "bases":
-            for t_idx, channel, n_bases in zip(t, df["channel"], df["read_len"]):
-                z[t_idx][channel-1] += n_bases
-        elif count_level == "reads":
-            for t_idx, channel in zip(t, df["channel"]):
-                try:
-                    z[t_idx][channel-1] += 1
-                except IndexError:
-                    print(t_idx, channel)
-                    raise
-        # Scale counts in case of downsampling
-        z = z * sf
+            # Count values per categories
+            z = np.ones((len(bins), n_channels), dtype=np.int32)
+            if count_level == "bases":
+                for t_idx, channel, n_bases in zip(t, df["channel"], df["read_len"]):
+                    z[t_idx][channel-1] += n_bases
+            elif count_level == "reads":
+                for t_idx, channel in zip(t, df["channel"]):
+                    try:
+                        z[t_idx][channel-1] += 1
+                    except IndexError:
+                        print(t_idx, channel)
+                        raise
+            # Scale counts in case of downsampling
+            z = z * sf
 
-        # Time series smoothing
-        if smooth_sigma:
-            z = gaussian_filter1d(z.astype(np.float32), sigma=smooth_sigma, axis=0)
+            # Time series smoothing
+            if smooth_sigma:
+                z = gaussian_filter1d(z.astype(np.float32), sigma=smooth_sigma, axis=0)
 
-        # Define x and y-axis
-        x = ["c {}".format(i) for i in range(1, n_channels+1)]
-        y = bins[1:]
+            # Define x and y-axis
+            x = ["c {}".format(i) for i in range(1, n_channels+1)]
+            y = bins[1:]
 
-        # Make data dict
-        data_dict = dict(x=[x], y=[y], z=[z])
+            # Make data dict
+            data_dict = dict(x=[x], y=[y], z=[z])
+        except ValueError:
+            data_dict = dict()
 
         label = "{} {}".format(df_level.capitalize(), count_level.capitalize())
-        return(label, data_dict)
+        return label, data_dict
 
     #~~~~~~~ALIGNMENT_SUMMARY METHOD~~~~~~~#
     def alignment_reads_status(

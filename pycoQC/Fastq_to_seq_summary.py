@@ -11,6 +11,7 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import multiprocessing as mp
 from time import time
 from collections import *
+from collections import *
 import traceback
 import logging
 from itertools import islice
@@ -56,7 +57,7 @@ class FastqParser(object):
     @staticmethod
     def single_fastq_entry_to_dict(fastq_entry, fastq_name, flag):
         """
-        Fields in fastq header:
+        Fields in fastq header from Guppy:
 
         @20a271c3-8f4b-466c-92b8-50a469aaa3e4
         runid=acfd15dcc73bb7bafd19e1fdbe72a535d7558bf1
@@ -77,13 +78,28 @@ class FastqParser(object):
             key, value = i.split('=')
             read_dict[key] = value
 
+        # Some fields will be absent if fastq not generated Guppy, thus the use of try/except statements
         # Get the values of interest into the dictionary
+        try:
+            run_id = read_dict['runid']
+        except KeyError:
+            run_id = ''
+        try:
+            time_string = parse(read_dict['start_time'])
+        except KeyError:
+            time_string = ''
+        try:
+            channel = read_dict['ch']
+        except KeyError:
+            channel = ''
+        try:
+            barcode = read_dict['barcode']
+        except KeyError:
+            barcode = ''
+
+        # The following values are always present in any given fastq
         read_id = items[0][1:]  # remove the leading "@"
-        run_id = read_dict['runid']
         length = len(seq)
-        time_string = parse(read_dict['start_time'])
-        channel = read_dict['ch']
-        barcode = read_dict['barcode']
 
         # Average phred score
         phred_list = [ord(letter) - 33 for letter in qual]
@@ -100,6 +116,7 @@ class FastqParser(object):
         else:
             flag = 'FALSE'
 
+        # Output everyting in a dictionary
         entry_dict = dict()
         # entry_dict[read_id] = (run_id, time_string, channel, barcode, average_phred, length, gc)
         entry_dict[read_id] = dict()
@@ -117,7 +134,7 @@ class FastqParser(object):
 
     @staticmethod
     def iterate_fastq_parallel(input_fastq, cpu):
-        # Fastq file ame
+        # Fastq file name
         fastq_name = os.path.basename(input_fastq).split('.')[0].split('_')[0]
 
         # Flag
@@ -342,7 +359,11 @@ class Fastq_to_seq_summary():
             time_zero = df.loc[:, 'start_time'].min()  # looking for min of 1st elements of list of tuples
             df.loc[:, 'start_time'] = df.loc[:, 'start_time'] - time_zero
             df.loc[:, 'start_time'] = df.loc[:, 'start_time'].dt.total_seconds()
-            df.loc[:, 'start_time'] = df.loc[:, 'start_time'].astype(int)  # Convert to integer
+            try:  #
+                df.loc[:, 'start_time'] = df.loc[:, 'start_time'].astype(int)  # Convert to integer
+            except pd.errors.IntCastingNaNError:
+                pass
+
 
             df.to_csv(self.seq_summary_fn, sep="\t", index=False)
 

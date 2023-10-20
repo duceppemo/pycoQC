@@ -15,6 +15,9 @@ build:
     - __entry_point_1__
     - __entry_point_2__
     - __entry_point_3__
+    - __entry_point_4__
+    - __entry_point_5__
+    - __entry_point_6__
   noarch: "python"
 
 requirements:
@@ -36,10 +39,16 @@ test:
   imports:
     - pycoQC.pycoQC
     - pycoQC.Fast5_to_seq_summary
+    - pycoQC.Fastq_to_seq_summary
+    - pycoQC.Pod5_to_seq_summary
+    - pycoQC.Bam_to_seq_summary
     - pycoQC.Barcode_split
   commands:
     - pycoQC --help
     - Fast5_to_seq_summary --help
+    - Fastq_to_seq_summary --help
+    - Pod5_to_seq_summary --help
+    - Bam_to_seq_summary --help
     - Barcode_split --help
 
 about:

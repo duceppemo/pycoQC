@@ -40,5 +40,8 @@ setup(
         'console_scripts': [
             '__entry_point_1__',
             '__entry_point_2__',
-            '__entry_point_3__']}
+            '__entry_point_3__',
+            '__entry_point_4__',
+            '__entry_point_5__',
+            '__entry_point_6__']}
 )

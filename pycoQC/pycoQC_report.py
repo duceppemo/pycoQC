@@ -88,8 +88,6 @@ class pycoQC_report ():
                 method = getattr(self.plotter, method_name)
                 fig = method(**method_args)
                 if fig['data']:  # Do not display %GC graph if no data available
-                    # TODO: don't add alignment summary if empty
-                    # TODO: don't add barcode summary if empty
                     plot = py.plot(
                         fig,
                         output_type='div',

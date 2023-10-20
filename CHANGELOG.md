@@ -1,5 +1,13 @@
 # pycoQC Changelog
 
+### 18/11/2023 v-3.0.0.0
+
+* Added support for Fastq input.
+* If Fastq provided, %GC graphs are added
+* Added support for BAM input if Doraro is used to basecall
+* Added support for pod5 input
+* Improved support for barcodes
+
 ### 11/10/2019 v-2.5.0.17
 
 * Style update to comply with codacity

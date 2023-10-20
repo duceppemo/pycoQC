@@ -104,8 +104,8 @@ Thank you
 
 GPLv3 (https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-Copyright © 2020 Adrien Leger & Tommaso Leonardi
+Copyright © 2023 Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe
 
 ## Authors
 
-* Adrien Leger & Tommaso Leonardi / aleg@ebi.ac.uk / https://adrienleger.com
+* Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe / aleg@ebi.ac.uk / https://adrienleger.com
