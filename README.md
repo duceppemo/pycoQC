@@ -1,4 +1,4 @@
-# pycoQC v2.5.2
+# pycoQC v3.0.0
 
 ![pycoQC](https://raw.githubusercontent.com/a-slide/pycoQC/master/docs/pictures/pycoQC_long.png)
 
@@ -100,7 +100,7 @@ Thank you
 * License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 * Programming Language :: Python :: 3
 
-## licence
+## Licence
 
 GPLv3 (https://www.gnu.org/licenses/gpl-3.0.en.html)
 
@@ -109,3 +109,43 @@ Copyright © 2023 Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe
 ## Authors
 
 * Adrien Leger, Tommaso Leonardi & Marc-Olivier Duceppe / aleg@ebi.ac.uk / https://adrienleger.com
+
+## Installation
+
+```
+# Install miniconda
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x Miniconda3-latest-Linux-x86_64.sh
+./Miniconda3-latest-Linux-x86_64.sh  # Accept ELUA, install in default location and say "yes" to have it start autumatically
+rm Miniconda3-latest-Linux-x86_64.sh
+ 
+# Apply changes
+source ~/.bashrc
+ 
+# Add channels
+# Order is important here
+conda config --add channels defaults
+conda config --add channels plotly
+conda config --add channels bioconda
+conda config --add channels conda-forge
+ 
+# Install mamba
+conda install mamba
+ 
+mamba create -n pycoQC python=3 cython
+conda activate pycoQC
+ 
+mkdir $HOME/prog
+cd $HOME/prog
+git clone https://github.com/duceppemo/pycoQC
+cd pycoQC
+ 
+python setup.py install
+pip install pod5
+# https://numpy.org/devdocs/user/troubleshooting-importerror.html#downstream-importerror-or-attributeerror
+pip install pyarrow --upgrade
+ 
+# Test installation
+# Should display help message with no errors
+pycoQC -h
+```
