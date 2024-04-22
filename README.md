@@ -132,20 +132,24 @@ conda config --add channels conda-forge
 # Install mamba
 conda install mamba
  
-mamba create -n pycoQC python=3 cython
+mamba create -n pycoQC -y python=3 cython
 conda activate pycoQC
  
-mkdir $HOME/prog
+[ -d $HOME/prog ] || mkdir -p $HOME/prog
 cd $HOME/prog
 git clone https://github.com/duceppemo/pycoQC
 cd pycoQC
  
 python setup.py install
 pip install pod5
-# https://numpy.org/devdocs/user/troubleshooting-importerror.html#downstream-importerror-or-attributeerror
-pip install pyarrow --upgrade
- 
+
 # Test installation
 # Should display help message with no errors
 pycoQC -h
+
+# If you get an error, try to to run the following command
+# https://numpy.org/devdocs/user/troubleshooting-importerror.html#downstream-importerror-or-attributeerror
+pip install pyarrow --upgrade
+ 
+
 ```
